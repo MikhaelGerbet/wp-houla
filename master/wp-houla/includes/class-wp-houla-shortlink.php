@@ -1,0 +1,298 @@
+<?php
+/**
+ * Automatic short link generation for WordPress posts.
+ *
+ * Like wp-bitly but using the Hou.la API:
+ * - Hooks into pre_get_shortlink to generate Hou.la short links
+ * - Works on all public post types (posts, pages, products, ...)
+ * - Stores the short link in post_meta (_wphoula_shortlink)
+ * - Also generates a QR code URL stored in _wphoula_qrcode
+ * - Provides a [wphoula] shortcode
+ *
+ * @since      1.0.0
+ * @package    Wp_Houla
+ * @subpackage Wp_Houla/includes
+ */
+
+class Wp_Houla_Shortlink {
+
+    /** @var Wp_Houla_Api */
+    private $api;
+
+    /** @var Wp_Houla_Auth */
+    private $auth;
+
+    /** @var Wp_Houla_Options */
+    private $options;
+
+    public function __construct() {
+        $this->api     = new Wp_Houla_Api();
+        $this->auth    = new Wp_Houla_Auth();
+        $this->options = new Wp_Houla_Options();
+    }
+
+    // =====================================================================
+    // Shortlink generation
+    // =====================================================================
+
+    /**
+     * Generate a Hou.la short link for a given post.
+     *
+     * Calls POST /links to create the short link + QR code.
+     *
+     * @param int  $post_id The post ID.
+     * @param bool $force   Force regeneration even if one exists.
+     * @return string|false Short link URL or false on failure.
+     */
+    public function generate_shortlink( $post_id, $force = false ) {
+        if ( ! $this->auth->is_connected() ) {
+            return false;
+        }
+
+        // Only published/future/private posts
+        if ( ! in_array( get_post_status( $post_id ), array( 'publish', 'future', 'private' ), true ) ) {
+            return false;
+        }
+
+        // Check if already exists (and not forcing)
+        $existing = get_post_meta( $post_id, '_wphoula_shortlink', true );
+        if ( ! empty( $existing ) && ! $force ) {
+            return $existing;
+        }
+
+        $permalink = get_permalink( $post_id );
+        $title     = get_the_title( $post_id );
+
+        $result = $this->api->post( '/links', array(
+            'originalUrl' => $permalink,
+            'title'       => $title,
+            'source'      => 'wordpress',
+        ) );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Failed to generate shortlink for post #' . $post_id . ': ' . $result->get_error_message() );
+            return false;
+        }
+
+        $shortlink = isset( $result['shortUrl'] ) ? $result['shortUrl'] : '';
+        $link_id   = isset( $result['id'] ) ? $result['id'] : '';
+        $qrcode    = isset( $result['qrCodeUrl'] ) ? $result['qrCodeUrl'] : '';
+
+        if ( empty( $shortlink ) ) {
+            $this->log( 'API returned no shortUrl for post #' . $post_id );
+            return false;
+        }
+
+        // Store in post meta
+        update_post_meta( $post_id, '_wphoula_shortlink', $shortlink );
+        update_post_meta( $post_id, '_wphoula_link_id', $link_id );
+
+        if ( $qrcode ) {
+            update_post_meta( $post_id, '_wphoula_qrcode', $qrcode );
+        }
+
+        // Build a QR code URL from the API if not returned directly
+        if ( empty( $qrcode ) && ! empty( $link_id ) ) {
+            $qr_url = WPHOULA_API_URL . '/api/links/' . $link_id . '/qrcode';
+            update_post_meta( $post_id, '_wphoula_qrcode', $qr_url );
+        }
+
+        $this->log( 'Shortlink generated for post #' . $post_id . ': ' . $shortlink );
+
+        return $shortlink;
+    }
+
+    // =====================================================================
+    // WordPress shortlink filter
+    // =====================================================================
+
+    /**
+     * Filter for pre_get_shortlink. Returns the Hou.la short link
+     * instead of the default WordPress one.
+     *
+     * @param string $shortlink  Default shortlink (or false).
+     * @param int    $id         Post ID or 0.
+     * @param string $context    Context (e.g. 'post').
+     * @param bool   $allow_slugs Whether to allow slugs.
+     * @return string|false
+     */
+    public function filter_get_shortlink( $shortlink, $id, $context, $allow_slugs ) {
+        // Skip bulk edits
+        if ( isset( $_GET['bulk_edit'] ) ) {
+            return $shortlink;
+        }
+
+        // Skip autosaves
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+            return $shortlink;
+        }
+
+        if ( ! $this->auth->is_connected() ) {
+            return $shortlink;
+        }
+
+        // Resolve post ID
+        $post_id = $id;
+        if ( 0 === $post_id ) {
+            $post = get_post();
+            if ( is_object( $post ) && ! empty( $post->ID ) ) {
+                $post_id = $post->ID;
+            }
+        }
+
+        if ( ! $post_id || wp_is_post_revision( $post_id ) ) {
+            return $shortlink;
+        }
+
+        // Check allowed post types
+        $allowed_types = $this->get_allowed_post_types();
+        if ( ! in_array( get_post_type( $post_id ), $allowed_types, true ) ) {
+            return $shortlink;
+        }
+
+        // Try to get existing shortlink
+        $houla_link = get_post_meta( $post_id, '_wphoula_shortlink', true );
+
+        // Generate if not found and post is published
+        if ( empty( $houla_link ) && in_array( get_post_status( $post_id ), array( 'publish', 'future', 'private' ), true ) ) {
+            $houla_link = $this->generate_shortlink( $post_id );
+        }
+
+        return $houla_link ?: $shortlink;
+    }
+
+    // =====================================================================
+    // Save post hook
+    // =====================================================================
+
+    /**
+     * Generate shortlink when a post is published.
+     * Hooked to save_post with priority 20 (after other plugins).
+     *
+     * @param int     $post_id Post ID.
+     * @param WP_Post $post    Post object.
+     * @param bool    $update  Whether this is an update.
+     */
+    public function on_save_post( $post_id, $post, $update ) {
+        // Skip autosaves
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+            return;
+        }
+
+        // Skip revisions
+        if ( wp_is_post_revision( $post_id ) ) {
+            return;
+        }
+
+        if ( ! $this->auth->is_connected() ) {
+            return;
+        }
+
+        // Only for allowed post types
+        $allowed_types = $this->get_allowed_post_types();
+        if ( ! in_array( $post->post_type, $allowed_types, true ) ) {
+            return;
+        }
+
+        // Only for published posts
+        if ( 'publish' !== $post->post_status ) {
+            return;
+        }
+
+        // Generate (won't overwrite if already exists)
+        $this->generate_shortlink( $post_id );
+    }
+
+    // =====================================================================
+    // Shortcode [wphoula]
+    // =====================================================================
+
+    /**
+     * Register the [wphoula] shortcode.
+     */
+    public function register_shortcode() {
+        add_shortcode( 'wphoula', array( $this, 'render_shortcode' ) );
+    }
+
+    /**
+     * Render the [wphoula] shortcode.
+     *
+     * Usage: [wphoula] or [wphoula text="Click here" post_id="42"]
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string HTML output.
+     */
+    public function render_shortcode( $atts = array() ) {
+        $defaults = array(
+            'text'    => '',
+            'title'   => '',
+            'before'  => '',
+            'after'   => '',
+            'post_id' => get_the_ID(),
+            'qrcode'  => false,
+        );
+
+        $atts = shortcode_atts( $defaults, $atts, 'wphoula' );
+
+        $post_id = absint( $atts['post_id'] );
+        if ( ! $post_id ) {
+            return '';
+        }
+
+        // QR code mode
+        if ( $atts['qrcode'] ) {
+            $qr_url = get_post_meta( $post_id, '_wphoula_qrcode', true );
+            if ( ! empty( $qr_url ) ) {
+                return sprintf(
+                    '<img src="%s" alt="%s" class="wphoula-qrcode" width="200" height="200">',
+                    esc_url( $qr_url ),
+                    esc_attr( get_the_title( $post_id ) )
+                );
+            }
+            return '';
+        }
+
+        // Short link mode
+        $shortlink = $this->filter_get_shortlink( '', $post_id, 'post', false );
+        if ( empty( $shortlink ) ) {
+            return '';
+        }
+
+        $text  = ! empty( $atts['text'] ) ? $atts['text'] : $shortlink;
+        $title = ! empty( $atts['title'] ) ? $atts['title'] : get_the_title( $post_id );
+
+        $output = sprintf(
+            '<a rel="shortlink" href="%s" title="%s">%s</a>',
+            esc_url( $shortlink ),
+            esc_attr( $title ),
+            esc_html( $text )
+        );
+
+        return $atts['before'] . $output . $atts['after'];
+    }
+
+    // =====================================================================
+    // Utilities
+    // =====================================================================
+
+    /**
+     * Get the list of post types that should have shortlinks generated.
+     *
+     * @return array
+     */
+    private function get_allowed_post_types() {
+        $types = get_post_types( array( 'public' => true ) );
+        return apply_filters( 'wphoula_allowed_post_types', array_values( $types ) );
+    }
+
+    /**
+     * Log a debug message.
+     *
+     * @param string $message
+     */
+    private function log( $message ) {
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( '[WP-Houla Shortlink] ' . $message );
+        }
+    }
+}

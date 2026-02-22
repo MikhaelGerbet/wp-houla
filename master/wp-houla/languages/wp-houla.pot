@@ -1,0 +1,318 @@
+# Copyright (C) 2025 Hou.la
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP-Houla 1.0.0\n"
+"Report-Msgid-Bugs-To: https://hou.la/contact\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: includes/class-wp-houla-api.php
+msgid "Not connected to Hou.la."
+msgstr ""
+
+#: includes/class-wp-houla-api.php
+msgid "Authentication failed. Please reconnect."
+msgstr ""
+
+#: includes/class-wp-houla-webhook.php
+msgid "Missing signature header."
+msgstr ""
+
+#: includes/class-wp-houla-webhook.php
+msgid "Webhook secret not configured."
+msgstr ""
+
+#: includes/class-wp-houla-webhook.php
+msgid "Invalid signature."
+msgstr ""
+
+#: includes/class-wp-houla-metabox.php
+msgid "Permission denied."
+msgstr ""
+
+#: includes/class-wp-houla-metabox.php
+msgid "Product not found."
+msgstr ""
+
+#: includes/class-wp-houla-metabox.php
+msgid "Product not synced."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Hou.la Settings"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Hou.la"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Settings"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "WP-Houla: Connect your Hou.la account to start syncing products."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Connect now"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Disconnected from Hou.la."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Settings saved."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Syncing..."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Synced"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Sync failed"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Are you sure?"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Loading..."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Disconnect"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Disconnecting..."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Successfully connected to Hou.la!"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connection"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Sync"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Orders"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Debug"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Account"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Status"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connected"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Workspace"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Email"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connect your Hou.la account to sync WooCommerce products and receive orders."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connect to Hou.la"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Product Sync"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connect your account first to configure sync options."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Auto-sync"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Automatically sync product changes to Hou.la"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Sync on publish"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Sync new products when they are published"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Products synced"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Last full sync"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Never"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Save Settings"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Sync All Products Now"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Orders via Hou.la"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connect your account first."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Webhook URL"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "This URL is automatically registered with Hou.la."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Orders received"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Last order"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "None yet"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Orders placed through your Hou.la bio page appear in WooCommerce > Orders with the payment method \"Hou.la Pay (Stripe)\"."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Debug Information"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Debug logging"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Enable debug logging (writes to wp-content/debug.log)"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Plugin version"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "PHP version"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "WordPress version"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "WooCommerce version"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "REST API base"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Webhook secret"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Not generated"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Synced with Hou.la"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Last sync: %s"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Views"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Clicks"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Sales"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Revenue"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Re-sync"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Unsync"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Not synced with Hou.la"
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Push this product to Hou.la to display it on your bio page."
+msgstr ""
+
+#: admin/partials/metabox-product.php
+msgid "Sync to Hou.la"
+msgstr ""
+
+#: includes/class-wp-houla-orders.php
+msgid "Order received via Hou.la Pay."
+msgstr ""
+
+#: includes/class-wp-houla-orders.php
+msgid "Refunded via Hou.la."
+msgstr ""

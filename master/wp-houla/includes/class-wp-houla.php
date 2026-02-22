@@ -1,0 +1,181 @@
+<?php
+/**
+ * The core plugin class.
+ *
+ * Loads dependencies, sets locale, registers admin hooks and WooCommerce hooks.
+ *
+ * @since      1.0.0
+ * @package    Wp_Houla
+ * @subpackage Wp_Houla/includes
+ */
+
+class Wp_Houla {
+
+    /** @var Wp_Houla_Loader */
+    protected $loader;
+
+    /** @var string */
+    protected $plugin_name;
+
+    /** @var string */
+    protected $version;
+
+    public function __construct() {
+        $this->version     = defined( 'WPHOULA_VERSION' ) ? WPHOULA_VERSION : '1.0.0';
+        $this->plugin_name = 'wp-houla';
+
+        $this->load_dependencies();
+        $this->set_locale();
+        $this->define_admin_hooks();
+        $this->define_shortlink_hooks();
+        $this->define_woocommerce_hooks();
+        $this->define_rest_routes();
+    }
+
+    // =====================================================================
+    // Dependencies
+    // =====================================================================
+
+    private function load_dependencies() {
+        $base = plugin_dir_path( dirname( __FILE__ ) ) . 'includes/';
+
+        require_once $base . 'class-wp-houla-loader.php';
+        require_once $base . 'class-wp-houla-i18n.php';
+        require_once $base . 'class-wp-houla-options.php';
+        require_once $base . 'class-wp-houla-auth.php';
+        require_once $base . 'class-wp-houla-api.php';
+        require_once $base . 'class-wp-houla-sync.php';
+        require_once $base . 'class-wp-houla-orders.php';
+        require_once $base . 'class-wp-houla-webhook.php';
+        require_once $base . 'class-wp-houla-metabox.php';
+        require_once $base . 'class-wp-houla-shortlink.php';
+        require_once $base . 'class-wp-houla-post-metabox.php';
+        require_once $base . 'class-wp-houla-activator.php';
+        require_once $base . 'class-wp-houla-deactivator.php';
+
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-wp-houla-admin.php';
+
+        $this->loader = new Wp_Houla_Loader();
+    }
+
+    // =====================================================================
+    // Locale
+    // =====================================================================
+
+    private function set_locale() {
+        $i18n = new Wp_Houla_i18n();
+        $this->loader->add_action( 'plugins_loaded', $i18n, 'load_plugin_textdomain' );
+    }
+
+    // =====================================================================
+    // Admin hooks
+    // =====================================================================
+
+    private function define_admin_hooks() {
+        $admin   = new Wp_Houla_Admin();
+        $metabox = new Wp_Houla_Metabox();
+
+        // Styles & scripts
+        $this->loader->add_action( 'admin_enqueue_scripts', $admin, 'enqueue_styles' );
+        $this->loader->add_action( 'admin_enqueue_scripts', $admin, 'enqueue_scripts' );
+
+        // Menu page
+        $this->loader->add_action( 'admin_menu', $admin, 'add_menu_page' );
+
+        // Settings link on plugins page
+        $this->loader->add_filter(
+            'plugin_action_links_' . WPHOULA_BASENAME,
+            $admin,
+            'add_action_links'
+        );
+
+        // Settings notice when not connected
+        $this->loader->add_action( 'admin_notices', $admin, 'display_settings_notice' );
+
+        // Admin AJAX actions
+        $this->loader->add_action( 'wp_ajax_wphoula_disconnect', $admin, 'ajax_disconnect' );
+        $this->loader->add_action( 'wp_ajax_wphoula_batch_sync', $admin, 'ajax_batch_sync' );
+        $this->loader->add_action( 'wp_ajax_wphoula_save_settings', $admin, 'ajax_save_settings' );
+
+        // Metabox on WooCommerce products
+        $this->loader->add_action( 'add_meta_boxes', $metabox, 'register_metabox' );
+
+        // Metabox AJAX actions
+        $this->loader->add_action( 'wp_ajax_wphoula_sync_product', $metabox, 'ajax_sync_product' );
+        $this->loader->add_action( 'wp_ajax_wphoula_unsync_product', $metabox, 'ajax_unsync_product' );
+        $this->loader->add_action( 'wp_ajax_wphoula_get_stats', $metabox, 'ajax_get_stats' );
+
+        // Post metabox (shortlink + QR code on all post types)
+        $post_metabox = new Wp_Houla_Post_Metabox();
+        $this->loader->add_action( 'add_meta_boxes', $post_metabox, 'register_metabox' );
+        $this->loader->add_action( 'wp_ajax_wphoula_generate_shortlink', $post_metabox, 'ajax_generate_shortlink' );
+        $this->loader->add_action( 'wp_ajax_wphoula_get_link_stats', $post_metabox, 'ajax_get_link_stats' );
+    }
+
+    // =====================================================================
+    // Shortlink hooks (all post types)
+    // =====================================================================
+
+    private function define_shortlink_hooks() {
+        $shortlink = new Wp_Houla_Shortlink();
+
+        // Generate shortlink on publish
+        $this->loader->add_action( 'save_post', $shortlink, 'on_save_post', 20, 3 );
+
+        // Override WordPress get_shortlink() with Hou.la link
+        $this->loader->add_filter( 'pre_get_shortlink', $shortlink, 'filter_get_shortlink', 10, 4 );
+
+        // Register [wphoula] shortcode
+        $this->loader->add_action( 'init', $shortlink, 'register_shortcode' );
+    }
+
+    // =====================================================================
+    // WooCommerce product sync hooks
+    // =====================================================================
+
+    private function define_woocommerce_hooks() {
+        $sync = new Wp_Houla_Sync();
+
+        // Product lifecycle
+        $this->loader->add_action( 'woocommerce_new_product', $sync, 'on_product_created', 20, 2 );
+        $this->loader->add_action( 'woocommerce_update_product', $sync, 'on_product_updated', 20, 2 );
+        $this->loader->add_action( 'woocommerce_before_delete_product', $sync, 'on_product_deleted', 10, 1 );
+        $this->loader->add_action( 'woocommerce_trash_product', $sync, 'on_product_deleted', 10, 1 );
+
+        // Stock changes
+        $this->loader->add_action( 'woocommerce_product_set_stock', $sync, 'on_stock_changed', 10, 1 );
+        $this->loader->add_action( 'woocommerce_variation_set_stock', $sync, 'on_stock_changed', 10, 1 );
+    }
+
+    // =====================================================================
+    // REST API routes (webhook receiver)
+    // =====================================================================
+
+    private function define_rest_routes() {
+        $webhook = new Wp_Houla_Webhook();
+        $auth    = new Wp_Houla_Auth();
+
+        $this->loader->add_action( 'rest_api_init', $webhook, 'register_routes' );
+        $this->loader->add_action( 'rest_api_init', $auth, 'register_routes' );
+    }
+
+    // =====================================================================
+    // Run
+    // =====================================================================
+
+    public function run() {
+        $this->loader->run();
+    }
+
+    public function get_plugin_name() {
+        return $this->plugin_name;
+    }
+
+    public function get_version() {
+        return $this->version;
+    }
+
+    public function get_loader() {
+        return $this->loader;
+    }
+}

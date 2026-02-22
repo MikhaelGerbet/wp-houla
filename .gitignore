@@ -1,0 +1,18 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build artifacts
+*.log
+
+# WordPress
+wp-config.php
