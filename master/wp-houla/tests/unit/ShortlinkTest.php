@@ -35,7 +35,7 @@ class ShortlinkTest extends TestCase {
         Functions\when( 'get_the_ID' )->justReturn( 1 );
         Functions\when( 'wp_is_post_revision' )->justReturn( false );
         Functions\when( 'get_post_types' )->justReturn( array( 'post', 'page', 'product' ) );
-        Functions\when( 'add_shortcode' )->justReturn( true );
+        // Do NOT stub add_shortcode: test_register_shortcode uses expect().
         Functions\when( 'shortcode_atts' )->alias( function ( $defaults, $atts, $tag = '' ) {
             return array_merge( $defaults, (array) $atts );
         } );

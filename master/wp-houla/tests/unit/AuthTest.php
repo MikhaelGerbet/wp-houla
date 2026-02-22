@@ -17,8 +17,8 @@ class AuthTest extends TestCase {
         parent::setUp();
 
         Functions\when( 'get_option' )->justReturn( array() );
-        Functions\when( 'update_option' )->justReturn( true );
-        Functions\when( 'delete_option' )->justReturn( true );
+        // Do NOT stub update_option/delete_option here: tests use expect()
+        // on them and Brain\Monkey does not allow when() + expect().
         Functions\when( 'wp_parse_args' )->alias( function ( $args, $defaults ) {
             return array_merge( $defaults, $args );
         } );

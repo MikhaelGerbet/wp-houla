@@ -17,6 +17,9 @@ abstract class TestCase extends PHPUnitTestCase {
         Monkey\setUp();
 
         // Mock common WordPress functions.
+        // IMPORTANT: only stub functions that are NEVER overridden with
+        // when() or expect() in individual tests. Brain\Monkey does not
+        // allow mixing when()/stubs() and expect() on the same function.
         Functions\stubs( [
             'esc_html__'        => function ( $text ) { return $text; },
             'esc_html_e'        => function ( $text ) { echo $text; },
@@ -41,18 +44,16 @@ abstract class TestCase extends PHPUnitTestCase {
             'get_post'          => function ( $post = null ) { return null; },
             'wp_redirect'       => function ( $location, $status = 302 ) { return true; },
             'wp_die'            => function ( $message = '' ) { return; },
-            'deactivate_plugins' => function ( $plugins ) { return; },
-            'flush_rewrite_rules' => function ( $hard = true ) { return; },
-            'is_wp_error'       => function ( $thing ) { return $thing instanceof \WP_Error; },
-            'get_option'        => function ( $option, $default = false ) { return $default; },
-            'update_option'     => function () { return true; },
-            'delete_option'     => function () { return true; },
-            'wp_parse_args'     => function ( $args, $defaults = array() ) { return array_merge( $defaults, (array) $args ); },
-            'apply_filters'     => function () { $args = func_get_args(); return isset( $args[1] ) ? $args[1] : null; },
         ] );
     }
 
     protected function tearDown(): void {
+        // Count Mockery/Brain\Monkey expectations as PHPUnit assertions
+        // to prevent tests from being flagged as "risky".
+        $container = \Mockery::getContainer();
+        if ( $container ) {
+            $this->addToAssertionCount( $container->mockery_getExpectationCount() );
+        }
         Monkey\tearDown();
         parent::tearDown();
     }

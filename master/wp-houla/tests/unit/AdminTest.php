@@ -26,11 +26,10 @@ class AdminTest extends TestCase {
             return array_merge( $defaults, $args );
         } );
         Functions\when( 'apply_filters' )->returnArg( 2 );
-        Functions\when( 'wp_enqueue_style' )->justReturn( true );
-        Functions\when( 'wp_enqueue_script' )->justReturn( true );
-        Functions\when( 'wp_localize_script' )->justReturn( true );
+        // Do NOT stub wp_enqueue_style, wp_enqueue_script, wp_localize_script,
+        // add_submenu_page here: they use expect() in tests and Brain\Monkey
+        // does not allow when() + expect() on the same function.
         Functions\when( 'wp_create_nonce' )->justReturn( 'test-nonce' );
-        Functions\when( 'add_submenu_page' )->justReturn( true );
         Functions\when( 'get_current_screen' )->justReturn( null );
     }
 

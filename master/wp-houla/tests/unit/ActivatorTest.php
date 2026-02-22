@@ -55,6 +55,7 @@ class ActivatorTest extends TestCase {
             ->once()
             ->with( \Mockery::type( 'string' ) )
             ->andReturn( true );
+        Functions\when( 'file_put_contents' )->justReturn( true );
 
         \Wp_Houla_Activator::activate();
     }

@@ -31,7 +31,7 @@ class WebhookTest extends TestCase {
             return array_merge( $defaults, $args );
         } );
         Functions\when( 'apply_filters' )->returnArg( 2 );
-        Functions\when( 'register_rest_route' )->justReturn( true );
+        // Do NOT stub register_rest_route: test_register_routes uses expect().
         Functions\when( 'is_wp_error' )->alias( function ( $thing ) {
             return $thing instanceof \WP_Error;
         } );
