@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} - Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: openssl, json, mbstring
+          coverage: xdebug
+
+      - name: Install Composer dependencies
+        working-directory: master/wp-houla
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run unit tests
+        working-directory: master/wp-houla
+        run: vendor/bin/phpunit --testsuite unit --colors=always
+
+      - name: Run all tests with coverage
+        if: matrix.php == '8.2'
+        working-directory: master/wp-houla
+        run: vendor/bin/phpunit --coverage-text --colors=always

@@ -1,0 +1,126 @@
+<?php
+/**
+ * Unit tests for Wp_Houla_Admin.
+ */
+
+namespace WpHoula\Tests\Unit;
+
+use WpHoula\Tests\TestCase;
+use Brain\Monkey\Functions;
+
+require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-options.php';
+require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-auth.php';
+require_once dirname( __DIR__, 2 ) . '/admin/class-wp-houla-admin.php';
+
+class AdminTest extends TestCase {
+
+    protected function setUp(): void {
+        parent::setUp();
+
+        Functions\when( 'get_option' )->alias( function ( $key, $default = false ) {
+            if ( $key === WPHOULA_AUTHORIZED ) return false;
+            return array();
+        } );
+        Functions\when( 'update_option' )->justReturn( true );
+        Functions\when( 'wp_parse_args' )->alias( function ( $args, $defaults ) {
+            return array_merge( $defaults, $args );
+        } );
+        Functions\when( 'apply_filters' )->returnArg( 2 );
+        Functions\when( 'wp_enqueue_style' )->justReturn( true );
+        Functions\when( 'wp_enqueue_script' )->justReturn( true );
+        Functions\when( 'wp_localize_script' )->justReturn( true );
+        Functions\when( 'wp_create_nonce' )->justReturn( 'test-nonce' );
+        Functions\when( 'add_submenu_page' )->justReturn( true );
+        Functions\when( 'get_current_screen' )->justReturn( null );
+    }
+
+    public function test_add_menu_page(): void {
+        Functions\expect( 'add_submenu_page' )
+            ->once()
+            ->with(
+                'woocommerce',
+                \Mockery::type( 'string' ),
+                \Mockery::type( 'string' ),
+                'manage_woocommerce',
+                'wp-houla',
+                \Mockery::type( 'array' )
+            );
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->add_menu_page();
+    }
+
+    public function test_add_action_links(): void {
+        $admin = new \Wp_Houla_Admin();
+        $links = $admin->add_action_links( array( '<a href="#">Deactivate</a>' ) );
+
+        $this->assertCount( 2, $links );
+        $this->assertStringContainsString( 'wp-houla', $links[0] );
+        $this->assertStringContainsString( 'Settings', $links[0] );
+    }
+
+    public function test_enqueue_styles_on_settings_page(): void {
+        Functions\expect( 'wp_enqueue_style' )
+            ->once()
+            ->with( 'wp-houla-admin', \Mockery::type( 'string' ), array(), WPHOULA_VERSION, 'all' );
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->enqueue_styles( 'woocommerce_page_wp-houla' );
+    }
+
+    public function test_enqueue_styles_skips_other_pages(): void {
+        Functions\expect( 'wp_enqueue_style' )->never();
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->enqueue_styles( 'dashboard' );
+    }
+
+    public function test_enqueue_styles_on_post_edit(): void {
+        Functions\expect( 'wp_enqueue_style' )->once();
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->enqueue_styles( 'post.php' );
+    }
+
+    public function test_enqueue_scripts_on_settings_page(): void {
+        Functions\expect( 'wp_enqueue_script' )->once();
+        Functions\expect( 'wp_localize_script' )->once();
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->enqueue_scripts( 'woocommerce_page_wp-houla' );
+    }
+
+    public function test_enqueue_scripts_skips_other_pages(): void {
+        Functions\expect( 'wp_enqueue_script' )->never();
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->enqueue_scripts( 'dashboard' );
+    }
+
+    public function test_display_settings_notice_when_not_connected(): void {
+        // No screen -> no notice output.
+        Functions\when( 'get_current_screen' )->justReturn( null );
+
+        $admin = new \Wp_Houla_Admin();
+        // Should not throw.
+        ob_start();
+        $admin->display_settings_notice();
+        $output = ob_get_clean();
+
+        $this->assertEmpty( $output );
+    }
+
+    public function test_display_settings_notice_on_plugins_page(): void {
+        $screen     = (object) array( 'id' => 'plugins' );
+        Functions\when( 'get_current_screen' )->justReturn( $screen );
+
+        $admin = new \Wp_Houla_Admin();
+
+        ob_start();
+        $admin->display_settings_notice();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString( 'notice-warning', $output );
+        $this->assertStringContainsString( 'wp-houla', $output );
+    }
+}
