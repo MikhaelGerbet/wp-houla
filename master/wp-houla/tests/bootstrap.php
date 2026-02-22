@@ -98,3 +98,22 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
         const CREATABLE = 'POST';
     }
 }
+
+if ( ! class_exists( 'WC_Order_Item_Shipping' ) ) {
+    /**
+     * Minimal WooCommerce WC_Order_Item_Shipping mock for tests.
+     */
+    class WC_Order_Item_Shipping {
+        private $method_title = '';
+        private $method_id    = '';
+        private $total        = 0;
+
+        public function set_method_title( $title ) { $this->method_title = $title; }
+        public function set_method_id( $id ) { $this->method_id = $id; }
+        public function set_total( $total ) { $this->total = $total; }
+
+        public function get_method_title() { return $this->method_title; }
+        public function get_method_id() { return $this->method_id; }
+        public function get_total() { return $this->total; }
+    }
+}

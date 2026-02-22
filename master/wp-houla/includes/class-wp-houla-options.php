@@ -132,18 +132,22 @@ class Wp_Houla_Options {
             return '';
         }
 
-        $key  = self::get_encryption_key();
-        $data = base64_decode( $value );
+        $key       = self::get_encryption_key();
+        $data      = base64_decode( $value );
+        $iv_length = openssl_cipher_iv_length( 'aes-256-cbc' );
 
-        if ( false === strpos( $data, '::' ) ) {
+        // Minimum size: IV (16 bytes) + separator '::' (2 bytes) + at least 1 byte of ciphertext.
+        if ( false === $data || strlen( $data ) < $iv_length + 3 ) {
             return $value; // Not encrypted, return as-is.
         }
 
-        list( $iv, $encrypted ) = explode( '::', $data, 2 );
+        // Extract IV by known length (avoids corruption when IV bytes contain '::').
+        $iv        = substr( $data, 0, $iv_length );
+        $encrypted = substr( $data, $iv_length + 2 ); // Skip '::' separator.
 
         $decrypted = openssl_decrypt( $encrypted, 'aes-256-cbc', $key, 0, $iv );
 
-        return $decrypted ?: '';
+        return ( false !== $decrypted ) ? $decrypted : '';
     }
 
     /**

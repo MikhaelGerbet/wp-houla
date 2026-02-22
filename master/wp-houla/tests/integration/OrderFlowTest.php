@@ -84,6 +84,7 @@ class OrderFlowTest extends TestCase {
         Functions\when( 'is_wp_error' )->alias( function ( $thing ) {
             return $thing instanceof \WP_Error;
         } );
+        Functions\when( 'current_time' )->justReturn( '2026-02-22 14:30:00' );
     }
 
     public function test_create_order_full_flow(): void {
