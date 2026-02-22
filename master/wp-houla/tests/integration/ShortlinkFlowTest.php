@@ -15,17 +15,6 @@ require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-auth.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-api.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-shortlink.php';
 
-if ( ! class_exists( 'WP_Error' ) ) {
-    class WP_Error {
-        private $code; private $message;
-        public function __construct( $code = '', $message = '', $data = '' ) {
-            $this->code = $code; $this->message = $message;
-        }
-        public function get_error_code() { return $this->code; }
-        public function get_error_message() { return $this->message; }
-    }
-}
-
 class ShortlinkFlowTest extends TestCase {
 
     private $storedMeta = array();

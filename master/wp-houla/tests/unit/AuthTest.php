@@ -198,24 +198,3 @@ class AuthTest extends TestCase {
         $this->assertInstanceOf( \WP_Error::class, $result );
     }
 }
-
-/**
- * Minimal WP_Error mock for tests.
- */
-if ( ! class_exists( 'WP_Error' ) ) {
-    class WP_Error {  // phpcs:ignore
-        private $code;
-        private $message;
-        private $data;
-
-        public function __construct( $code = '', $message = '', $data = '' ) {
-            $this->code    = $code;
-            $this->message = $message;
-            $this->data    = $data;
-        }
-
-        public function get_error_code() { return $this->code; }
-        public function get_error_message() { return $this->message; }
-        public function get_error_data() { return $this->data; }
-    }
-}

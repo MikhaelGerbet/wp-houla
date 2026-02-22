@@ -13,17 +13,6 @@ require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-auth.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-api.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-shortlink.php';
 
-if ( ! class_exists( 'WP_Error' ) ) {
-    class WP_Error {
-        private $code; private $message; private $data;
-        public function __construct( $code = '', $message = '', $data = '' ) {
-            $this->code = $code; $this->message = $message; $this->data = $data;
-        }
-        public function get_error_code() { return $this->code; }
-        public function get_error_message() { return $this->message; }
-    }
-}
-
 class ShortlinkTest extends TestCase {
 
     protected function setUp(): void {
@@ -200,12 +189,14 @@ class ShortlinkTest extends TestCase {
         $this->assertStringContainsString( 'Click me', $output );
     }
 
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function test_on_save_post_skips_autosave(): void {
         $this->mockConnected();
 
-        if ( ! defined( 'DOING_AUTOSAVE' ) ) {
-            define( 'DOING_AUTOSAVE', true );
-        }
+        define( 'DOING_AUTOSAVE', true );
 
         $shortlink = new \Wp_Houla_Shortlink();
         // Should not throw or call generate.

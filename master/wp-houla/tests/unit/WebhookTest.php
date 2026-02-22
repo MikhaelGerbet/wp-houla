@@ -11,36 +11,6 @@ use Brain\Monkey\Functions;
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-options.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-webhook.php';
 
-if ( ! class_exists( 'WP_Error' ) ) {
-    class WP_Error {
-        private $code; private $message; private $data;
-        public function __construct( $code = '', $message = '', $data = '' ) {
-            $this->code = $code; $this->message = $message; $this->data = $data;
-        }
-        public function get_error_code() { return $this->code; }
-        public function get_error_message() { return $this->message; }
-        public function get_error_data() { return $this->data; }
-    }
-}
-
-if ( ! class_exists( 'WP_REST_Response' ) ) {
-    class WP_REST_Response {
-        public $data;
-        public $status;
-        public function __construct( $data = array(), $status = 200 ) {
-            $this->data = $data; $this->status = $status;
-        }
-        public function get_data() { return $this->data; }
-        public function get_status() { return $this->status; }
-    }
-}
-
-if ( ! class_exists( 'WP_REST_Server' ) ) {
-    class WP_REST_Server {
-        const CREATABLE = 'POST';
-    }
-}
-
 class WebhookTest extends TestCase {
 
     private $webhookSecret = 'test-webhook-secret-123456';

@@ -55,3 +55,46 @@ if ( ! defined( 'WPHOULA_OAUTH_CLIENT_ID' ) ) {
 if ( ! defined( 'WPHOULA_LOG' ) ) {
     define( 'WPHOULA_LOG', '/tmp/wp-houla-debug.txt' );
 }
+
+// =========================================================================
+// WordPress mock classes (global namespace — loaded once for all tests)
+// =========================================================================
+
+if ( ! class_exists( 'WP_Error' ) ) {
+    class WP_Error {
+        private $code;
+        private $message;
+        private $data;
+
+        public function __construct( $code = '', $message = '', $data = '' ) {
+            $this->code    = $code;
+            $this->message = $message;
+            $this->data    = $data;
+        }
+
+        public function get_error_code() { return $this->code; }
+        public function get_error_message() { return $this->message; }
+        public function get_error_data() { return $this->data; }
+    }
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+    class WP_REST_Response {
+        public $data;
+        public $status;
+
+        public function __construct( $data = array(), $status = 200 ) {
+            $this->data   = $data;
+            $this->status = $status;
+        }
+
+        public function get_data() { return $this->data; }
+        public function get_status() { return $this->status; }
+    }
+}
+
+if ( ! class_exists( 'WP_REST_Server' ) ) {
+    class WP_REST_Server {
+        const CREATABLE = 'POST';
+    }
+}
