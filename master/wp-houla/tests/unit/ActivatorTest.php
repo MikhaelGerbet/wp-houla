@@ -13,6 +13,21 @@ require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-deactivator.php';
 
 class ActivatorTest extends TestCase {
 
+    protected function setUp(): void {
+        parent::setUp();
+        // Create the log directory so real is_dir() returns true and the
+        // log-creation block is skipped in tests that don't need it.
+        @\mkdir( WPHOULA_DIR . '/log', 0755, true );
+    }
+
+    protected function tearDown(): void {
+        // Clean up any files created during the test.
+        $logDir = WPHOULA_DIR . '/log';
+        @\unlink( $logDir . '/.htaccess' );
+        @\rmdir( $logDir );
+        parent::tearDown();
+    }
+
     public function test_activate_creates_webhook_secret(): void {
         $savedOptions = null;
 
@@ -23,9 +38,9 @@ class ActivatorTest extends TestCase {
                 $savedOptions = $value;
                 return true;
             } );
-        Functions\when( 'is_dir' )->justReturn( true );
         Functions\when( 'flush_rewrite_rules' )->justReturn( true );
         Functions\when( 'deactivate_plugins' )->justReturn( true );
+        Functions\when( 'wp_mkdir_p' )->justReturn( true );
 
         \Wp_Houla_Activator::activate();
 
@@ -38,8 +53,8 @@ class ActivatorTest extends TestCase {
         $existingSecret = 'my-existing-secret';
 
         Functions\when( 'get_option' )->justReturn( array( 'webhook_secret' => $existingSecret ) );
-        Functions\when( 'is_dir' )->justReturn( true );
         Functions\when( 'flush_rewrite_rules' )->justReturn( true );
+        Functions\when( 'wp_mkdir_p' )->justReturn( true );
 
         // update_option should NOT be called since secret already exists.
         Functions\expect( 'update_option' )->never();
@@ -48,16 +63,26 @@ class ActivatorTest extends TestCase {
     }
 
     public function test_activate_creates_log_directory(): void {
+        // Remove the log directory so real is_dir() returns false.
+        $logDir = WPHOULA_DIR . '/log';
+        @\unlink( $logDir . '/.htaccess' );
+        @\rmdir( $logDir );
+
         Functions\when( 'get_option' )->justReturn( array( 'webhook_secret' => 'existing' ) );
-        Functions\when( 'is_dir' )->justReturn( false );
         Functions\when( 'flush_rewrite_rules' )->justReturn( true );
         Functions\expect( 'wp_mkdir_p' )
             ->once()
             ->with( \Mockery::type( 'string' ) )
-            ->andReturn( true );
-        Functions\when( 'file_put_contents' )->justReturn( true );
+            ->andReturnUsing( function ( $path ) {
+                // Actually create the directory so file_put_contents works.
+                @\mkdir( $path, 0755, true );
+                return true;
+            } );
 
         \Wp_Houla_Activator::activate();
+
+        // Verify that .htaccess was created by the real file_put_contents.
+        $this->assertFileExists( $logDir . '/.htaccess' );
     }
 
     public function test_deactivate_cleans_transients(): void {

@@ -151,6 +151,8 @@ class ShortlinkTest extends TestCase {
     }
 
     public function test_register_shortcode(): void {
+        $this->mockDisconnected();
+
         Functions\expect( 'add_shortcode' )
             ->once()
             ->with( 'wphoula', \Mockery::type( 'array' ) );
