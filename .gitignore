@@ -12,6 +12,9 @@ node_modules/
 vendor/
 
 # Build artifacts
+build/
+releases/
+*.zip
 *.log
 
 # WordPress
