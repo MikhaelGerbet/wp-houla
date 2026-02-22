@@ -26,14 +26,11 @@ jobs:
           coverage: xdebug
 
       - name: Install Composer dependencies
-        working-directory: master/wp-houla
         run: composer install --prefer-dist --no-progress
 
       - name: Run unit tests
-        working-directory: master/wp-houla
         run: vendor/bin/phpunit --testsuite unit --colors=always
 
       - name: Run all tests with coverage
         if: matrix.php == '8.2'
-        working-directory: master/wp-houla
         run: vendor/bin/phpunit --coverage-text --colors=always

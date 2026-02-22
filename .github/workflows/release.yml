@@ -16,14 +16,18 @@ jobs:
       - name: Read version from plugin header
         id: version
         run: |
-          VERSION=$(grep -oP 'Version:\s*\K[\d.]+' master/wp-houla/wp-houla.php)
+          VERSION=$(grep -oP 'Version:\s*\K[\d.]+' wp-houla.php)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Plugin version: $VERSION"
 
       - name: Build zip package
         run: |
           mkdir -p build
-          cp -r master/wp-houla build/wp-houla
+          # Copy plugin files (exclude repo-level dirs)
+          mkdir -p build/wp-houla
+          for item in admin includes languages .wordpress-org wp-houla.php uninstall.php README.md README.txt; do
+            [ -e "$item" ] && cp -r "$item" build/wp-houla/
+          done
 
           # Remove dev files
           cd build

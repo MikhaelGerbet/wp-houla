@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 
 # Read version from main plugin file
-$pluginFile = "master\wp-houla\wp-houla.php"
+$pluginFile = "wp-houla.php"
 $versionLine = Select-String -Path $pluginFile -Pattern "Version:\s*(.+)" | Select-Object -First 1
 if (-not $versionLine) {
     Write-Error "Could not read version from $pluginFile"
@@ -23,7 +23,10 @@ if (-not (Test-Path $releasesDir)) { New-Item -ItemType Directory -Path $release
 
 # Copy plugin files to build/wp-houla/
 $dest = Join-Path $buildDir "wp-houla"
-Copy-Item "master\wp-houla" -Destination $dest -Recurse
+New-Item -ItemType Directory -Path $dest | Out-Null
+@("admin", "includes", "languages", ".wordpress-org", "wp-houla.php", "uninstall.php", "README.md", "README.txt") | ForEach-Object {
+    if (Test-Path $_) { Copy-Item $_ -Destination $dest -Recurse }
+}
 
 # Remove dev/unnecessary files from the build
 $excludePatterns = @(
