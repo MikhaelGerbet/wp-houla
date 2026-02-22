@@ -9,6 +9,7 @@ use WpHoula\Tests\TestCase;
 use Brain\Monkey\Functions;
 
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-options.php';
+require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-orders.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-wp-houla-webhook.php';
 
 class WebhookTest extends TestCase {

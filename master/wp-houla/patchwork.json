@@ -1,0 +1,6 @@
+{
+    "redefinable-internals": [
+        "is_dir",
+        "file_put_contents"
+    ]
+}

@@ -37,6 +37,18 @@ abstract class TestCase extends PHPUnitTestCase {
             'wp_generate_password' => function ( $length = 12, $special_chars = true ) {
                 return substr( str_repeat( 'abcdefghijklmnopqrstuvwxyz0123456789', 3 ), 0, $length );
             },
+            'esc_html'          => function ( $text ) { return $text; },
+            'get_post'          => function ( $post = null ) { return null; },
+            'wp_redirect'       => function ( $location, $status = 302 ) { return true; },
+            'wp_die'            => function ( $message = '' ) { return; },
+            'deactivate_plugins' => function ( $plugins ) { return; },
+            'flush_rewrite_rules' => function ( $hard = true ) { return; },
+            'is_wp_error'       => function ( $thing ) { return $thing instanceof \WP_Error; },
+            'get_option'        => function ( $option, $default = false ) { return $default; },
+            'update_option'     => function () { return true; },
+            'delete_option'     => function () { return true; },
+            'wp_parse_args'     => function ( $args, $defaults = array() ) { return array_merge( $defaults, (array) $args ); },
+            'apply_filters'     => function () { $args = func_get_args(); return isset( $args[1] ) ? $args[1] : null; },
         ] );
     }
 

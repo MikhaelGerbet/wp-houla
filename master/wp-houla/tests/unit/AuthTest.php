@@ -26,7 +26,6 @@ class AuthTest extends TestCase {
         Functions\when( 'set_transient' )->justReturn( true );
         Functions\when( 'get_transient' )->justReturn( false );
         Functions\when( 'delete_transient' )->justReturn( true );
-        Functions\when( 'http_build_query' )->alias( 'http_build_query' );
     }
 
     public function test_is_connected_returns_false_by_default(): void {
