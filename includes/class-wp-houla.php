@@ -142,6 +142,15 @@ class Wp_Houla {
         // Generate shortlink on publish
         $this->loader->add_action( 'save_post', $shortlink, 'on_save_post', 20, 3 );
 
+        // Gutenberg/Block Editor: catch status transitions (more reliable than save_post)
+        $this->loader->add_action( 'transition_post_status', $shortlink, 'on_transition_post_status', 20, 3 );
+
+        // WooCommerce products: dedicated hooks (save_post not always reliable for products)
+        if ( wphoula_is_woocommerce_active() ) {
+            $this->loader->add_action( 'woocommerce_new_product', $shortlink, 'on_woocommerce_product_save', 30, 2 );
+            $this->loader->add_action( 'woocommerce_update_product', $shortlink, 'on_woocommerce_product_save', 30, 2 );
+        }
+
         // Override WordPress get_shortlink() with Hou.la link
         $this->loader->add_filter( 'pre_get_shortlink', $shortlink, 'filter_get_shortlink', 10, 4 );
 

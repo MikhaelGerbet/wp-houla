@@ -53,11 +53,6 @@ class Wp_Houla_Post_Metabox {
         $post_types = apply_filters( 'wphoula_allowed_post_types', array_values( $all_types ) );
 
         foreach ( $post_types as $type ) {
-            // Skip 'product' - handled by Wp_Houla_Metabox (product-specific)
-            if ( 'product' === $type && class_exists( 'WooCommerce' ) ) {
-                continue;
-            }
-
             $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
                            . esc_html__( 'Hou.la', 'wp-houla' );
 

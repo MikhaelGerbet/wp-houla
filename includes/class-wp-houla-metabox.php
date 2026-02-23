@@ -38,9 +38,12 @@ class Wp_Houla_Metabox {
             return;
         }
 
+        $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
+                       . esc_html__( 'Hou.la — Product Sync', 'wp-houla' );
+
         add_meta_box(
             'wphoula_product_metabox',
-            __( 'Hou.la', 'wp-houla' ),
+            $metabox_title,
             array( $this, 'render' ),
             'product',
             'side',

@@ -45,12 +45,17 @@ class Wp_Houla_Shortlink {
      * @return string|false Short link URL or false on failure.
      */
     public function generate_shortlink( $post_id, $force = false ) {
+        $this->log( 'generate_shortlink() called for post #' . $post_id . ' (force=' . ( $force ? 'true' : 'false' ) . ')' );
+
         if ( ! $this->auth->is_connected() ) {
+            $this->log( 'Skipped post #' . $post_id . ': not connected to Hou.la' );
             return false;
         }
 
+        $status = get_post_status( $post_id );
         // Only published/future/private posts
-        if ( ! in_array( get_post_status( $post_id ), array( 'publish', 'future', 'private' ), true ) ) {
+        if ( ! in_array( $status, array( 'publish', 'future', 'private' ), true ) ) {
+            $this->log( 'Skipped post #' . $post_id . ': status is "' . $status . '"' );
             return false;
         }
 
@@ -184,6 +189,52 @@ class Wp_Houla_Shortlink {
         }
 
         if ( ! $this->auth->is_connected() ) {
+            $this->log( 'on_save_post: skipped post #' . $post_id . ' — not connected' );
+            return;
+        }
+
+        // Only for allowed post types
+        $allowed_types = $this->get_allowed_post_types();
+        if ( ! in_array( $post->post_type, $allowed_types, true ) ) {
+            $this->log( 'on_save_post: skipped post #' . $post_id . ' — type "' . $post->post_type . '" not in allowed types [' . implode( ', ', $allowed_types ) . ']' );
+            return;
+        }
+
+        // Only for published posts
+        if ( 'publish' !== $post->post_status ) {
+            $this->log( 'on_save_post: skipped post #' . $post_id . ' — status is "' . $post->post_status . '"' );
+            return;
+        }
+
+        $this->log( 'on_save_post: generating shortlink for post #' . $post_id . ' (type=' . $post->post_type . ')' );
+
+        // Generate (won't overwrite if already exists)
+        $this->generate_shortlink( $post_id );
+    }
+
+    /**
+     * Generate shortlink when a post transitions to 'publish'.
+     * This is more reliable than save_post for Gutenberg/block editor
+     * where REST API saves may fire save_post before the status change.
+     *
+     * Hooked to transition_post_status.
+     *
+     * @param string  $new_status New post status.
+     * @param string  $old_status Old post status.
+     * @param WP_Post $post       Post object.
+     */
+    public function on_transition_post_status( $new_status, $old_status, $post ) {
+        // Only when transitioning TO publish
+        if ( 'publish' !== $new_status ) {
+            return;
+        }
+
+        // Skip if already publish → publish (save_post handles that)
+        if ( 'publish' === $old_status ) {
+            return;
+        }
+
+        if ( ! $this->auth->is_connected() ) {
             return;
         }
 
@@ -193,13 +244,35 @@ class Wp_Houla_Shortlink {
             return;
         }
 
-        // Only for published posts
-        if ( 'publish' !== $post->post_status ) {
+        // Generate (won't overwrite if already exists)
+        $this->generate_shortlink( $post->ID );
+    }
+
+    /**
+     * Generate shortlink when a WooCommerce product is created or updated.
+     * WooCommerce products don't always trigger save_post reliably,
+     * so we hook into woocommerce_new_product / woocommerce_update_product.
+     *
+     * @param int        $product_id Product (post) ID.
+     * @param WC_Product $product    WooCommerce product object (optional).
+     */
+    public function on_woocommerce_product_save( $product_id, $product = null ) {
+        if ( ! $this->auth->is_connected() ) {
+            return;
+        }
+
+        $allowed_types = $this->get_allowed_post_types();
+        if ( ! in_array( 'product', $allowed_types, true ) ) {
+            return;
+        }
+
+        $post = get_post( $product_id );
+        if ( ! $post || 'publish' !== $post->post_status ) {
             return;
         }
 
         // Generate (won't overwrite if already exists)
-        $this->generate_shortlink( $post_id );
+        $this->generate_shortlink( $product_id );
     }
 
     // =====================================================================
@@ -295,12 +368,21 @@ class Wp_Houla_Shortlink {
 
     /**
      * Log a debug message.
+     * Always logs when WP_DEBUG is enabled.
+     * Also logs to a dedicated wp-houla.log file when WP_DEBUG_LOG is enabled.
      *
      * @param string $message
      */
     private function log( $message ) {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( '[WP-Houla Shortlink] ' . $message );
+        }
+
+        // Also log to a dedicated plugin log file
+        if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+            $log_file = WPHOULA_DIR . '/debug.log';
+            $timestamp = gmdate( 'Y-m-d H:i:s' );
+            file_put_contents( $log_file, '[' . $timestamp . '] ' . $message . "\n", FILE_APPEND );
         }
     }
 }
