@@ -124,7 +124,7 @@ $last_order_at   = $options->get( 'last_order_at' );
                             $post_types = get_post_types( array( 'public' => true ), 'objects' );
                             foreach ( $post_types as $pt ) :
                                 if ( 'attachment' === $pt->name ) continue;
-                                $checked = empty( $allowed ) || in_array( $pt->name, $allowed, true );
+                                $checked = in_array( $pt->name, $allowed, true );
                             ?>
                                 <label style="display: block; margin-bottom: 4px;">
                                     <input type="checkbox" class="wphoula-post-type" value="<?php echo esc_attr( $pt->name ); ?>" <?php checked( $checked ); ?>>

@@ -42,8 +42,8 @@ class Wp_Houla_Options {
             'last_order_at'      => 0,
             // Debug
             'debug'              => false,
-            // Post type filtering (empty = all public types)
-            'allowed_post_types' => array(),
+            // Post type filtering (default: post, page, product)
+            'allowed_post_types' => array( 'post', 'page', 'product' ),
         ) );
 
         $this->_options = wp_parse_args( get_option( WPHOULA_OPTIONS, array() ), $defaults );
