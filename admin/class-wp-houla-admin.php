@@ -96,9 +96,9 @@ class Wp_Houla_Admin {
         );
 
         if ( wphoula_is_woocommerce_active() ) {
-            // WooCommerce present: add under WooCommerce menu
+            // WooCommerce present: add under Marketing menu
             add_submenu_page(
-                'woocommerce',
+                'woocommerce-marketing',
                 __( 'Hou.la Settings', 'wp-houla' ),
                 __( 'Hou.la', 'wp-houla' ),
                 'manage_woocommerce',
