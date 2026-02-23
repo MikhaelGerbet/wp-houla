@@ -42,9 +42,9 @@ define( 'WPHOULA_OPTIONS', 'wphoula-options' );
 define( 'WPHOULA_AUTHORIZED', 'wphoula-authorized' );
 
 // API URLs - change to staging/local for development
-define( 'WPHOULA_API_URL', 'https://api.hou.la' );
+define( 'WPHOULA_API_URL', 'https://hou.la' );
 define( 'WPHOULA_OAUTH_URL', 'https://hou.la/oauth/authorize' );
-define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_API_URL . '/oauth/token' );
+define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_API_URL . '/api/oauth/token' );
 define( 'WPHOULA_OAUTH_CLIENT_ID', 'wp-houla' );
 
 define( 'WPHOULA_LOG', WPHOULA_DIR . '/log/debug.txt' );

@@ -41,13 +41,13 @@ if ( ! defined( 'WPHOULA_AUTHORIZED' ) ) {
     define( 'WPHOULA_AUTHORIZED', 'wphoula-authorized' );
 }
 if ( ! defined( 'WPHOULA_API_URL' ) ) {
-    define( 'WPHOULA_API_URL', 'https://api.hou.la' );
+    define( 'WPHOULA_API_URL', 'https://hou.la' );
 }
 if ( ! defined( 'WPHOULA_OAUTH_URL' ) ) {
     define( 'WPHOULA_OAUTH_URL', 'https://hou.la/oauth/authorize' );
 }
 if ( ! defined( 'WPHOULA_OAUTH_TOKEN_URL' ) ) {
-    define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_API_URL . '/oauth/token' );
+    define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_API_URL . '/api/oauth/token' );
 }
 if ( ! defined( 'WPHOULA_OAUTH_CLIENT_ID' ) ) {
     define( 'WPHOULA_OAUTH_CLIENT_ID', 'wp-houla' );
