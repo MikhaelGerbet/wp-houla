@@ -432,7 +432,12 @@ class Wp_Houla_Admin {
      * @return bool
      */
     private function is_our_page( $hook ) {
-        return in_array( $hook, array( 'woocommerce_page_wp-houla', 'settings_page_wp-houla', 'toplevel_page_wp-houla' ), true );
+        return in_array( $hook, array(
+            'woocommerce_page_wp-houla',
+            'marketing_page_wp-houla',
+            'settings_page_wp-houla',
+            'toplevel_page_wp-houla',
+        ), true );
     }
 
     /**
