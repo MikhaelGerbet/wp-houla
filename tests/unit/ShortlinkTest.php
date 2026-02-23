@@ -28,7 +28,11 @@ class ShortlinkTest extends TestCase {
         } );
         Functions\when( 'get_post_meta' )->justReturn( '' );
         Functions\when( 'update_post_meta' )->justReturn( true );
+        Functions\when( 'delete_post_meta' )->justReturn( true );
         Functions\when( 'get_post_status' )->justReturn( 'publish' );
+        Functions\when( 'add_query_arg' )->alias( function ( $args, $url ) {
+            return $url . '?' . http_build_query( $args );
+        } );
         Functions\when( 'get_post_type' )->justReturn( 'post' );
         Functions\when( 'get_permalink' )->justReturn( 'https://example.com/my-post/' );
         Functions\when( 'get_the_title' )->justReturn( 'My Post Title' );

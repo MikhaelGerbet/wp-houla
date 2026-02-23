@@ -38,7 +38,7 @@ class AdminTest extends TestCase {
         Functions\expect( 'add_submenu_page' )
             ->once()
             ->with(
-                'woocommerce',
+                'woocommerce-marketing',
                 \Mockery::type( 'string' ),
                 \Mockery::type( 'string' ),
                 'manage_woocommerce',
