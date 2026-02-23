@@ -4,7 +4,7 @@ Tags: short links, qr code, url shortener, woocommerce, social commerce
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 WC requires at least: 7.0
@@ -191,6 +191,12 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 
 == Changelog ==
 
+= 1.2.0 - 2026-02-23 =
+* Dashboard widget with link stats, click count, and top 5 links
+* Short link column in Posts and Pages admin lists
+* Fix shortlink API call (use correct field name for URL)
+* Automatic WordPress source tracking on created links
+
 = 1.0.0 - 2025-01-15 =
 * OAuth 2.0 + PKCE authentication with Hou.la
 * Automatic short link generation for all public post types
@@ -206,6 +212,9 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 * Complete French translation (fr_FR)
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+New dashboard widget and posts list column. Fixes shortlink creation for sites connected via OAuth.
 
 = 1.0.0 =
 First stable release. Install the plugin, connect your Hou.la account, and every published post gets a short link and QR code automatically.
