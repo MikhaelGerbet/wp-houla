@@ -36,6 +36,9 @@ class ShortlinkFlowTest extends TestCase {
         Functions\when( 'get_permalink' )->justReturn( 'https://example.com/hello-world/' );
         Functions\when( 'get_the_title' )->justReturn( 'Hello World' );
         Functions\when( 'wp_is_post_revision' )->justReturn( false );
+        Functions\when( 'add_query_arg' )->alias( function ( $args, $url ) {
+            return $url . '?' . http_build_query( $args );
+        } );
         Functions\when( 'get_post_type' )->justReturn( 'post' );
         Functions\when( 'get_post_status' )->justReturn( 'publish' );
 
