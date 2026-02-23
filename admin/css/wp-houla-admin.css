@@ -16,6 +16,8 @@
 .wphoula-logo {
     vertical-align: middle;
     margin-right: 8px;
+    width: 28px;
+    height: 28px;
 }
 
 /* Tabs */
@@ -193,4 +195,22 @@
 
 .wphoula-post-metabox .description {
     margin-bottom: 8px;
+}
+
+/* =====================================================================
+   7-day sparkline chart
+   ===================================================================== */
+
+.wphoula-chart-wrapper {
+    background: #f9f9f9;
+    border-radius: 4px;
+    padding: 8px;
+    text-align: center;
+}
+
+.wphoula-chart-label {
+    font-size: 11px;
+    color: #666;
+    margin: 0 0 4px;
+    font-weight: 500;
 }

@@ -281,8 +281,17 @@ class Wp_Houla_Shortlink {
      * @return array
      */
     private function get_allowed_post_types() {
-        $types = get_post_types( array( 'public' => true ) );
-        return apply_filters( 'wphoula_allowed_post_types', array_values( $types ) );
+        $all_types = get_post_types( array( 'public' => true ) );
+        $all_types = array_values( $all_types );
+
+        // Check for user-configured post types
+        $options = new Wp_Houla_Options();
+        $saved = $options->get( 'allowed_post_types' );
+        if ( is_array( $saved ) && ! empty( $saved ) ) {
+            $all_types = array_intersect( $all_types, $saved );
+        }
+
+        return apply_filters( 'wphoula_allowed_post_types', array_values( $all_types ) );
     }
 
     /**

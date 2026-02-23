@@ -78,12 +78,18 @@
         var $btn = $(this);
         $btn.prop('disabled', true);
 
+        var postTypes = [];
+        $('.wphoula-post-type:checked').each(function () {
+            postTypes.push($(this).val());
+        });
+
         $.post(ajaxUrl, {
             action: 'wphoula_save_settings',
             nonce: nonce,
             auto_sync: $('#wphoula-auto-sync').is(':checked') ? 1 : 0,
             sync_on_publish: $('#wphoula-sync-on-publish').is(':checked') ? 1 : 0,
-            debug: $('#wphoula-debug').is(':checked') ? 1 : 0
+            debug: $('#wphoula-debug').is(':checked') ? 1 : 0,
+            'allowed_post_types[]': postTypes
         }, function (response) {
             $btn.prop('disabled', false);
             if (response.success) {
@@ -329,8 +335,97 @@
                 $('#wphoula-post-stat-today').text(d.clicksToday || 0);
                 $('#wphoula-post-stat-qr').text(d.qrScans || 0);
                 $postStats.show();
+
+                // Draw 7-day sparkline if data available
+                if (d.byDay && d.byDay.length > 0) {
+                    drawSparkline(d.byDay);
+                }
             }
         });
     });
+
+    // =================================================================
+    // Sparkline chart (pure canvas, no dependencies)
+    // =================================================================
+
+    function drawSparkline(byDay) {
+        var canvas = document.getElementById('wphoula-sparkline');
+        if (!canvas || !canvas.getContext) return;
+
+        var $wrapper = $('#wphoula-chart-wrapper');
+        $wrapper.show();
+
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width;
+        var h = canvas.height;
+        var padding = 4;
+
+        // Extract click values, sorted by date
+        byDay.sort(function (a, b) {
+            return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+        });
+
+        var values = byDay.map(function (d) { return d.clicks || 0; });
+        var labels = byDay.map(function (d) {
+            var parts = d.date.split('-');
+            return parts[2] + '/' + parts[1];
+        });
+        var maxVal = Math.max.apply(null, values) || 1;
+        var n = values.length;
+
+        if (n < 2) return;
+
+        var stepX = (w - padding * 2) / (n - 1);
+        var scaleY = (h - padding * 2) / maxVal;
+
+        // Background
+        ctx.clearRect(0, 0, w, h);
+
+        // Gradient fill under the line
+        var gradient = ctx.createLinearGradient(0, 0, 0, h);
+        gradient.addColorStop(0, 'rgba(102, 126, 234, 0.3)');
+        gradient.addColorStop(1, 'rgba(102, 126, 234, 0.02)');
+
+        ctx.beginPath();
+        ctx.moveTo(padding, h - padding - values[0] * scaleY);
+        for (var i = 1; i < n; i++) {
+            ctx.lineTo(padding + i * stepX, h - padding - values[i] * scaleY);
+        }
+        ctx.lineTo(padding + (n - 1) * stepX, h - padding);
+        ctx.lineTo(padding, h - padding);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Line
+        ctx.beginPath();
+        ctx.moveTo(padding, h - padding - values[0] * scaleY);
+        for (var j = 1; j < n; j++) {
+            ctx.lineTo(padding + j * stepX, h - padding - values[j] * scaleY);
+        }
+        ctx.strokeStyle = '#667eea';
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // Dots at each data point
+        for (var k = 0; k < n; k++) {
+            ctx.beginPath();
+            ctx.arc(padding + k * stepX, h - padding - values[k] * scaleY, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#667eea';
+            ctx.fill();
+        }
+
+        // Day labels at bottom
+        ctx.fillStyle = '#999';
+        ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        for (var m = 0; m < n; m++) {
+            // Only show first, middle, and last label to avoid overlap
+            if (m === 0 || m === n - 1 || m === Math.floor(n / 2)) {
+                ctx.fillText(labels[m], padding + m * stepX, h - 1);
+            }
+        }
+    }
 
 })(jQuery);

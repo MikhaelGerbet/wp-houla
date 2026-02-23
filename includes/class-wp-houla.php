@@ -28,8 +28,12 @@ class Wp_Houla {
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_shortlink_hooks();
-        $this->define_woocommerce_hooks();
         $this->define_rest_routes();
+
+        // WooCommerce features only when WooCommerce is active
+        if ( wphoula_is_woocommerce_active() ) {
+            $this->define_woocommerce_hooks();
+        }
     }
 
     // =====================================================================
@@ -72,8 +76,7 @@ class Wp_Houla {
     // =====================================================================
 
     private function define_admin_hooks() {
-        $admin   = new Wp_Houla_Admin();
-        $metabox = new Wp_Houla_Metabox();
+        $admin = new Wp_Houla_Admin();
 
         // Styles & scripts
         $this->loader->add_action( 'admin_enqueue_scripts', $admin, 'enqueue_styles' );
@@ -94,16 +97,22 @@ class Wp_Houla {
 
         // Admin AJAX actions
         $this->loader->add_action( 'wp_ajax_wphoula_disconnect', $admin, 'ajax_disconnect' );
-        $this->loader->add_action( 'wp_ajax_wphoula_batch_sync', $admin, 'ajax_batch_sync' );
         $this->loader->add_action( 'wp_ajax_wphoula_save_settings', $admin, 'ajax_save_settings' );
 
-        // Metabox on WooCommerce products
-        $this->loader->add_action( 'add_meta_boxes', $metabox, 'register_metabox' );
+        // WooCommerce-specific admin features
+        if ( wphoula_is_woocommerce_active() ) {
+            $metabox = new Wp_Houla_Metabox();
 
-        // Metabox AJAX actions
-        $this->loader->add_action( 'wp_ajax_wphoula_sync_product', $metabox, 'ajax_sync_product' );
-        $this->loader->add_action( 'wp_ajax_wphoula_unsync_product', $metabox, 'ajax_unsync_product' );
-        $this->loader->add_action( 'wp_ajax_wphoula_get_stats', $metabox, 'ajax_get_stats' );
+            $this->loader->add_action( 'wp_ajax_wphoula_batch_sync', $admin, 'ajax_batch_sync' );
+
+            // Metabox on WooCommerce products
+            $this->loader->add_action( 'add_meta_boxes', $metabox, 'register_metabox' );
+
+            // Metabox AJAX actions
+            $this->loader->add_action( 'wp_ajax_wphoula_sync_product', $metabox, 'ajax_sync_product' );
+            $this->loader->add_action( 'wp_ajax_wphoula_unsync_product', $metabox, 'ajax_unsync_product' );
+            $this->loader->add_action( 'wp_ajax_wphoula_get_stats', $metabox, 'ajax_get_stats' );
+        }
 
         // Post metabox (shortlink + QR code on all post types)
         $post_metabox = new Wp_Houla_Post_Metabox();

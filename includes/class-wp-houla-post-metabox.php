@@ -41,7 +41,16 @@ class Wp_Houla_Post_Metabox {
             return;
         }
 
-        $post_types = apply_filters( 'wphoula_allowed_post_types', get_post_types( array( 'public' => true ) ) );
+        $all_types = get_post_types( array( 'public' => true ) );
+
+        // Respect allowed_post_types setting
+        $options = new Wp_Houla_Options();
+        $saved = $options->get( 'allowed_post_types' );
+        if ( is_array( $saved ) && ! empty( $saved ) ) {
+            $all_types = array_intersect( $all_types, $saved );
+        }
+
+        $post_types = apply_filters( 'wphoula_allowed_post_types', array_values( $all_types ) );
 
         foreach ( $post_types as $type ) {
             // Skip 'product' - handled by Wp_Houla_Metabox (product-specific)
@@ -49,9 +58,12 @@ class Wp_Houla_Post_Metabox {
                 continue;
             }
 
+            $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
+                           . esc_html__( 'Hou.la', 'wp-houla' );
+
             add_meta_box(
                 'wphoula_post_metabox',
-                __( 'Hou.la', 'wp-houla' ),
+                $metabox_title,
                 array( $this, 'render' ),
                 $type,
                 'side',
@@ -120,6 +132,11 @@ class Wp_Houla_Post_Metabox {
                             <td class="wphoula-stat-value" id="wphoula-post-stat-qr">-</td>
                         </tr>
                     </table>
+                    <!-- 7-day performance sparkline -->
+                    <div class="wphoula-chart-wrapper" id="wphoula-chart-wrapper" style="display:none; margin-top: 8px;">
+                        <p class="wphoula-chart-label"><?php esc_html_e( '7-day performance', 'wp-houla' ); ?></p>
+                        <canvas id="wphoula-sparkline" width="260" height="60"></canvas>
+                    </div>
                 </div>
 
                 <!-- Actions -->
@@ -192,6 +209,7 @@ class Wp_Houla_Post_Metabox {
 
     /**
      * AJAX: Fetch click stats for a post's short link.
+     * Uses the export/summary endpoint which includes daily breakdowns.
      */
     public function ajax_get_link_stats() {
         check_ajax_referer( 'wphoula_post_metabox', 'nonce' );
@@ -203,12 +221,38 @@ class Wp_Houla_Post_Metabox {
             wp_send_json_error( __( 'No link found.', 'wp-houla' ) );
         }
 
-        $stats = $this->api->get( '/links/' . $link_id . '/stats' );
+        // Get 7-day summary with daily breakdown
+        $from = gmdate( 'Y-m-d', strtotime( '-7 days' ) );
+        $to   = gmdate( 'Y-m-d' );
+
+        $stats = $this->api->get( '/hit/export/' . $link_id, array(
+            'format' => 'json',
+            'from'   => $from,
+            'to'     => $to,
+        ) );
 
         if ( is_wp_error( $stats ) ) {
             wp_send_json_error( $stats->get_error_message() );
         }
 
-        wp_send_json_success( $stats );
+        // Build response with clicks today
+        $today_str    = gmdate( 'Y-m-d' );
+        $clicks_today = 0;
+        $qr_today     = 0;
+        $by_day       = isset( $stats['byDay'] ) ? $stats['byDay'] : array();
+
+        foreach ( $by_day as $day ) {
+            if ( isset( $day['date'] ) && $day['date'] === $today_str ) {
+                $clicks_today = isset( $day['clicks'] ) ? (int) $day['clicks'] : 0;
+                $qr_today     = isset( $day['flashs'] ) ? (int) $day['flashs'] : 0;
+            }
+        }
+
+        wp_send_json_success( array(
+            'totalClicks' => isset( $stats['totalClicks'] ) ? (int) $stats['totalClicks'] : 0,
+            'clicksToday' => $clicks_today,
+            'qrScans'     => $qr_today,
+            'byDay'       => $by_day,
+        ) );
     }
 }

@@ -46,12 +46,14 @@ $last_order_at   = $options->get( 'last_order_at' );
         <a href="#tab-connection" class="nav-tab nav-tab-active" data-tab="connection">
             <?php esc_html_e( 'Connection', 'wp-houla' ); ?>
         </a>
+        <?php if ( wphoula_is_woocommerce_active() ) : ?>
         <a href="#tab-sync" class="nav-tab" data-tab="sync">
             <?php esc_html_e( 'Sync', 'wp-houla' ); ?>
         </a>
         <a href="#tab-orders" class="nav-tab" data-tab="orders">
             <?php esc_html_e( 'Orders', 'wp-houla' ); ?>
         </a>
+        <?php endif; ?>
         <a href="#tab-debug" class="nav-tab" data-tab="debug">
             <?php esc_html_e( 'Debug', 'wp-houla' ); ?>
         </a>
@@ -95,7 +97,7 @@ $last_order_at   = $options->get( 'last_order_at' );
                 </p>
 
             <?php else : ?>
-                <p><?php esc_html_e( 'Connect your Hou.la account to sync WooCommerce products and receive orders.', 'wp-houla' ); ?></p>
+                <p><?php esc_html_e( 'Connect your Hou.la account to generate short links and QR codes for your posts.', 'wp-houla' ); ?></p>
                 <p>
                     <a href="<?php echo esc_url( $auth->get_authorization_url() ); ?>" class="button button-primary button-hero">
                         <?php esc_html_e( 'Connect to Hou.la', 'wp-houla' ); ?>
@@ -103,11 +105,51 @@ $last_order_at   = $options->get( 'last_order_at' );
                 </p>
             <?php endif; ?>
         </div>
+
+        <?php if ( $is_connected ) : ?>
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Shortlink Settings', 'wp-houla' ); ?></h2>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Post types', 'wp-houla' ); ?></th>
+                    <td>
+                        <fieldset>
+                            <legend class="screen-reader-text"><?php esc_html_e( 'Post types', 'wp-houla' ); ?></legend>
+                            <?php
+                            $allowed = $options->get( 'allowed_post_types' );
+                            if ( ! is_array( $allowed ) ) {
+                                $allowed = array();
+                            }
+                            $post_types = get_post_types( array( 'public' => true ), 'objects' );
+                            foreach ( $post_types as $pt ) :
+                                if ( 'attachment' === $pt->name ) continue;
+                                $checked = empty( $allowed ) || in_array( $pt->name, $allowed, true );
+                            ?>
+                                <label style="display: block; margin-bottom: 4px;">
+                                    <input type="checkbox" class="wphoula-post-type" value="<?php echo esc_attr( $pt->name ); ?>" <?php checked( $checked ); ?>>
+                                    <?php echo esc_html( $pt->labels->name ); ?> <code>(<?php echo esc_html( $pt->name ); ?>)</code>
+                                </label>
+                            <?php endforeach; ?>
+                            <p class="description"><?php esc_html_e( 'Short links and QR codes will be generated for selected post types.', 'wp-houla' ); ?></p>
+                        </fieldset>
+                    </td>
+                </tr>
+            </table>
+
+            <p>
+                <button type="button" class="button button-primary" id="wphoula-save-settings">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- ============================================================= -->
-    <!-- TAB: Sync                                                      -->
+    <!-- TAB: Sync (WooCommerce only)                                   -->
     <!-- ============================================================= -->
+    <?php if ( wphoula_is_woocommerce_active() ) : ?>
     <div class="wphoula-tab-content" id="tab-sync" style="display:none;">
         <div class="wphoula-card">
             <h2><?php esc_html_e( 'Product Sync', 'wp-houla' ); ?></h2>
@@ -161,7 +203,7 @@ $last_order_at   = $options->get( 'last_order_at' );
     </div>
 
     <!-- ============================================================= -->
-    <!-- TAB: Orders                                                    -->
+    <!-- TAB: Orders (WooCommerce only)                                 -->
     <!-- ============================================================= -->
     <div class="wphoula-tab-content" id="tab-orders" style="display:none;">
         <div class="wphoula-card">
@@ -196,6 +238,7 @@ $last_order_at   = $options->get( 'last_order_at' );
             <?php endif; ?>
         </div>
     </div>
+    <?php endif; /* wphoula_is_woocommerce_active() */ ?>
 
     <!-- ============================================================= -->
     <!-- TAB: Debug                                                     -->

@@ -1,0 +1,66 @@
+name: Bump version on release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Bump plugin version
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from release tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          # Strip leading "v" if present (e.g. v1.2.0 -> 1.2.0)
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version format: $VERSION (expected X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Bumping to version: $VERSION"
+
+      - name: Update version in wp-houla.php header
+        run: |
+          sed -i "s/^\( \* Version:\s*\).*/\1${{ steps.version.outputs.version }}/" wp-houla.php
+
+      - name: Update WPHOULA_VERSION constant
+        run: |
+          sed -i "s/define( 'WPHOULA_VERSION', '[^']*' );/define( 'WPHOULA_VERSION', '${{ steps.version.outputs.version }}' );/" wp-houla.php
+
+      - name: Update Stable tag in README.txt
+        run: |
+          sed -i "s/^Stable tag:.*/Stable tag: ${{ steps.version.outputs.version }}/" README.txt
+
+      - name: Verify changes
+        run: |
+          echo "--- wp-houla.php header ---"
+          grep "Version:" wp-houla.php
+          echo "--- wp-houla.php constant ---"
+          grep "WPHOULA_VERSION" wp-houla.php
+          echo "--- README.txt ---"
+          grep "Stable tag:" README.txt
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add wp-houla.php README.txt
+          if git diff --staged --quiet; then
+            echo "No version changes detected, skipping commit"
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+            git push origin master
+          fi

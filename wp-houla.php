@@ -9,7 +9,7 @@
  * @wordpress-plugin
  * Plugin Name:       WP-Houla - Short Links, QR Codes & Social Commerce
  * Plugin URI:        https://hou.la/
- * Description:       Connect WordPress to Hou.la for automatic short links, QR codes on every post, and WooCommerce product sync with your bio page for social selling via Stripe.
+ * Description:       Connect WordPress to Hou.la for automatic short links, QR codes on every post, and optional WooCommerce product sync with your bio page for social selling via Stripe.
  * Version:           1.0.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
@@ -67,24 +67,18 @@ register_activation_hook( __FILE__, 'activate_wp_houla' );
 register_deactivation_hook( __FILE__, 'deactivate_wp_houla' );
 
 // =========================================================================
-// WooCommerce dependency check
+// WooCommerce detection (optional, not required)
 // =========================================================================
 
 /**
- * Check that WooCommerce is active before running the plugin.
+ * Check whether WooCommerce is active.
+ * The plugin works without it (shortlinks + QR codes only).
+ * WooCommerce features (product sync, orders, webhook) load only when present.
+ *
+ * @return bool
  */
-function wphoula_check_woocommerce() {
-    if ( ! class_exists( 'WooCommerce' ) ) {
-        add_action( 'admin_notices', 'wphoula_woocommerce_missing_notice' );
-        return false;
-    }
-    return true;
-}
-
-function wphoula_woocommerce_missing_notice() {
-    echo '<div class="error"><p>';
-    echo esc_html__( 'Hou.la Pay requires WooCommerce to be installed and active.', 'wp-houla' );
-    echo '</p></div>';
+function wphoula_is_woocommerce_active() {
+    return class_exists( 'WooCommerce' );
 }
 
 // =========================================================================
@@ -94,10 +88,6 @@ function wphoula_woocommerce_missing_notice() {
 require plugin_dir_path( __FILE__ ) . 'includes/class-wp-houla.php';
 
 function run_wp_houla() {
-    if ( ! wphoula_check_woocommerce() ) {
-        return;
-    }
-
     $plugin = new Wp_Houla();
     $plugin->run();
 }
