@@ -73,7 +73,7 @@ class Wp_Houla_Auth {
             'response_type'         => 'code',
             'client_id'             => WPHOULA_OAUTH_CLIENT_ID,
             'redirect_uri'          => $this->get_callback_url(),
-            'scope'                 => 'ecommerce:write products:sync orders:create',
+            'scope'                 => 'links:read links:write ecommerce:write products:sync orders:create',
             'state'                 => $state,
             'code_challenge'        => $code_challenge,
             'code_challenge_method' => 'S256',
