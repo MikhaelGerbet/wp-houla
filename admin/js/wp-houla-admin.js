@@ -8,6 +8,7 @@
  * - Save settings AJAX
  * - Product metabox: sync, unsync, load stats
  * - Post metabox: generate/regenerate shortlink, copy, QR, load click stats
+ * - Dashboard widget: overview stats + sparkline
  *
  * @since 1.0.0
  * @package Wp_Houla
@@ -427,5 +428,54 @@
             }
         }
     }
+
+    // =================================================================
+    // Dashboard widget
+    // =================================================================
+
+    $(document).ready(function () {
+        var $widget = $('.wphoula-dashboard-widget');
+        if ($widget.length === 0) return;
+
+        var widgetNonce = $widget.data('nonce');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_dashboard_stats',
+            nonce: widgetNonce
+        }, function (response) {
+            $('#wphoula-dw-loading').hide();
+
+            if (response.success && response.data) {
+                var d = response.data;
+                $('#wphoula-dw-total-links').text(d.totalLinks || 0);
+                $('#wphoula-dw-total-clicks').text(d.totalClicks || 0);
+                $('#wphoula-dw-clicks-today').text(d.clicksToday || 0);
+                $('#wphoula-dw-content').show();
+
+                // Render top links table
+                if (d.topLinks && d.topLinks.length > 0) {
+                    var $tbody = $('#wphoula-dw-table tbody');
+                    $tbody.empty();
+                    for (var i = 0; i < d.topLinks.length; i++) {
+                        var link = d.topLinks[i];
+                        var title = link.title || link.shortUrl;
+                        if (title.length > 35) title = title.substring(0, 35) + '...';
+                        $tbody.append(
+                            '<tr>' +
+                            '<td><a href="' + link.shortUrl + '" target="_blank" title="' + link.shortUrl + '">' + title + '</a></td>' +
+                            '<td class="wphoula-stat-value">' + (link.clicks || 0) + '</td>' +
+                            '</tr>'
+                        );
+                    }
+                    $('#wphoula-dw-top').show();
+                }
+            } else {
+                $('#wphoula-dw-loading').text(response.data || 'Error loading stats');
+                $('#wphoula-dw-loading').show();
+            }
+        }).fail(function () {
+            $('#wphoula-dw-loading').text('Network error');
+        });
+    });
 
 })(jQuery);

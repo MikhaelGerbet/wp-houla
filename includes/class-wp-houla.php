@@ -95,6 +95,17 @@ class Wp_Houla {
         // Settings notice when not connected
         $this->loader->add_action( 'admin_notices', $admin, 'display_settings_notice' );
 
+        // Dashboard widget
+        $this->loader->add_action( 'wp_dashboard_setup', $admin, 'register_dashboard_widget' );
+        $this->loader->add_action( 'wp_ajax_wphoula_dashboard_stats', $admin, 'ajax_dashboard_stats' );
+
+        // Posts list column (for all public post types)
+        $this->loader->add_filter( 'manage_posts_columns', $admin, 'add_posts_column' );
+        $this->loader->add_action( 'manage_posts_custom_column', $admin, 'render_posts_column', 10, 2 );
+        $this->loader->add_filter( 'manage_edit-post_sortable_columns', $admin, 'sortable_posts_column' );
+        $this->loader->add_filter( 'manage_pages_columns', $admin, 'add_posts_column' );
+        $this->loader->add_action( 'manage_pages_custom_column', $admin, 'render_posts_column', 10, 2 );
+
         // Admin AJAX actions
         $this->loader->add_action( 'wp_ajax_wphoula_disconnect', $admin, 'ajax_disconnect' );
         $this->loader->add_action( 'wp_ajax_wphoula_save_settings', $admin, 'ajax_save_settings' );

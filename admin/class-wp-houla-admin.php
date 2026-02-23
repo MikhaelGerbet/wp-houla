@@ -34,8 +34,8 @@ class Wp_Houla_Admin {
      * @param string $hook Current admin page.
      */
     public function enqueue_styles( $hook ) {
-        // Load on our settings page + any post edit screen
-        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) ) {
+        // Load on our settings page + any post edit screen + dashboard + post list
+        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook || 'edit.php' === $hook ) {
             wp_enqueue_style(
                 'wp-houla-admin',
                 WPHOULA_URL . 'admin/css/wp-houla-admin.css',
@@ -52,7 +52,7 @@ class Wp_Houla_Admin {
      * @param string $hook Current admin page.
      */
     public function enqueue_scripts( $hook ) {
-        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) ) {
+        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook ) {
             wp_enqueue_script(
                 'wp-houla-admin',
                 WPHOULA_URL . 'admin/js/wp-houla-admin.js',
@@ -224,6 +224,188 @@ class Wp_Houla_Admin {
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );
+    }
+
+    // =====================================================================
+    // Dashboard widget
+    // =====================================================================
+
+    /**
+     * Register the Hou.la dashboard widget.
+     */
+    public function register_dashboard_widget() {
+        if ( ! $this->auth->is_connected() ) {
+            return;
+        }
+
+        $widget_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
+                      . esc_html__( 'Hou.la - Short Links', 'wp-houla' );
+
+        wp_add_dashboard_widget(
+            'wphoula_dashboard_widget',
+            $widget_title,
+            array( $this, 'render_dashboard_widget' )
+        );
+    }
+
+    /**
+     * Render the dashboard widget content.
+     */
+    public function render_dashboard_widget() {
+        $nonce = wp_create_nonce( 'wphoula_admin' );
+        ?>
+        <div class="wphoula-dashboard-widget" data-nonce="<?php echo esc_attr( $nonce ); ?>">
+            <div class="wphoula-dw-loading" id="wphoula-dw-loading">
+                <span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>
+                <?php esc_html_e( 'Loading stats...', 'wp-houla' ); ?>
+            </div>
+            <div class="wphoula-dw-content" id="wphoula-dw-content" style="display:none;">
+                <div class="wphoula-dw-stats">
+                    <div class="wphoula-dw-stat">
+                        <span class="wphoula-dw-stat-value" id="wphoula-dw-total-links">-</span>
+                        <span class="wphoula-dw-stat-label"><?php esc_html_e( 'Short links', 'wp-houla' ); ?></span>
+                    </div>
+                    <div class="wphoula-dw-stat">
+                        <span class="wphoula-dw-stat-value" id="wphoula-dw-total-clicks">-</span>
+                        <span class="wphoula-dw-stat-label"><?php esc_html_e( 'Total clicks', 'wp-houla' ); ?></span>
+                    </div>
+                    <div class="wphoula-dw-stat">
+                        <span class="wphoula-dw-stat-value" id="wphoula-dw-clicks-today">-</span>
+                        <span class="wphoula-dw-stat-label"><?php esc_html_e( 'Clicks today', 'wp-houla' ); ?></span>
+                    </div>
+                </div>
+                <div class="wphoula-dw-chart" id="wphoula-dw-chart" style="display:none;margin-top:12px;">
+                    <p class="wphoula-chart-label"><?php esc_html_e( '7-day performance', 'wp-houla' ); ?></p>
+                    <canvas id="wphoula-dw-sparkline" width="100%" height="60"></canvas>
+                </div>
+                <div class="wphoula-dw-top" id="wphoula-dw-top" style="display:none;margin-top:12px;">
+                    <p class="wphoula-chart-label"><?php esc_html_e( 'Top links', 'wp-houla' ); ?></p>
+                    <table class="wphoula-dw-table" id="wphoula-dw-table">
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="wphoula-dw-footer" style="margin-top:12px;text-align:right;">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=wp-houla' ) ); ?>" class="button button-small">
+                    <?php esc_html_e( 'Settings', 'wp-houla' ); ?>
+                </a>
+                <a href="https://hou.la/manager" target="_blank" class="button button-primary button-small" style="margin-left:4px;">
+                    <?php esc_html_e( 'Open Hou.la', 'wp-houla' ); ?>
+                </a>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * AJAX: Get dashboard widget stats.
+     * Fetches recent links created by this WP site.
+     */
+    public function ajax_dashboard_stats() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $api = new Wp_Houla_Api();
+
+        // Get links created by WordPress (sorted by clicks)
+        $links = $api->get( '/manager/link', array(
+            'page'   => '1',
+            'limit'  => '5',
+            'sort'   => 'hitsCount,DESC',
+            'filter' => 'createdByType||eq||wordpress',
+        ) );
+
+        if ( is_wp_error( $links ) ) {
+            wp_send_json_error( $links->get_error_message() );
+        }
+
+        $total_links  = isset( $links['total'] ) ? (int) $links['total'] : 0;
+        $total_clicks = 0;
+        $top_links    = array();
+
+        $data = isset( $links['data'] ) ? $links['data'] : array();
+        foreach ( $data as $link ) {
+            $clicks = isset( $link['hitsCount'] ) ? (int) $link['hitsCount'] : 0;
+            $total_clicks += $clicks;
+            $top_links[] = array(
+                'title'    => isset( $link['title'] ) ? $link['title'] : $link['key'],
+                'shortUrl' => isset( $link['shortUrl'] ) ? $link['shortUrl'] : '',
+                'clicks'   => $clicks,
+            );
+        }
+
+        // Also get today's clicks from byDay data (if available)
+        // For now, return totals from the filtered links response
+        wp_send_json_success( array(
+            'totalLinks'  => $total_links,
+            'totalClicks' => $total_clicks,
+            'clicksToday' => 0, // Would require separate hit/export call
+            'topLinks'    => $top_links,
+        ) );
+    }
+
+    // =====================================================================
+    // Posts list column
+    // =====================================================================
+
+    /**
+     * Add Hou.la column header to posts list.
+     *
+     * @param array $columns
+     * @return array
+     */
+    public function add_posts_column( $columns ) {
+        if ( ! $this->auth->is_connected() ) {
+            return $columns;
+        }
+
+        $columns['wphoula_shortlink'] = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="14" height="14" style="vertical-align:text-bottom;margin-right:2px;" alt=""> '
+            . esc_html__( 'Short link', 'wp-houla' );
+
+        return $columns;
+    }
+
+    /**
+     * Render the Hou.la column content for each post.
+     *
+     * @param string $column_name
+     * @param int    $post_id
+     */
+    public function render_posts_column( $column_name, $post_id ) {
+        if ( 'wphoula_shortlink' !== $column_name ) {
+            return;
+        }
+
+        $shortlink = get_post_meta( $post_id, '_wphoula_shortlink', true );
+        $clicks    = 0;
+        $link_id   = get_post_meta( $post_id, '_wphoula_link_id', true );
+
+        if ( ! empty( $shortlink ) ) {
+            echo '<div class="wphoula-col-link">';
+            echo '<a href="' . esc_url( $shortlink ) . '" target="_blank" class="wphoula-col-url" title="' . esc_attr( $shortlink ) . '">';
+            // Show only the path part
+            $parts = wp_parse_url( $shortlink );
+            echo esc_html( isset( $parts['host'] ) ? $parts['host'] : '' );
+            echo esc_html( isset( $parts['path'] ) ? $parts['path'] : '' );
+            echo '</a>';
+            echo '</div>';
+        } else {
+            echo '<span class="wphoula-col-none">-</span>';
+        }
+    }
+
+    /**
+     * Make the Hou.la column sortable (by post meta).
+     *
+     * @param array $columns
+     * @return array
+     */
+    public function sortable_posts_column( $columns ) {
+        $columns['wphoula_shortlink'] = 'wphoula_shortlink';
+        return $columns;
     }
 
     // =====================================================================

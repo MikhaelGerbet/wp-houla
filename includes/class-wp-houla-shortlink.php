@@ -64,9 +64,8 @@ class Wp_Houla_Shortlink {
         $title     = get_the_title( $post_id );
 
         $result = $this->api->post( '/links', array(
-            'originalUrl' => $permalink,
-            'title'       => $title,
-            'source'      => 'wordpress',
+            'url'   => $permalink,
+            'title' => $title,
         ) );
 
         if ( is_wp_error( $result ) ) {

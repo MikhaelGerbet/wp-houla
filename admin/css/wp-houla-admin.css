@@ -214,3 +214,94 @@
     margin: 0 0 4px;
     font-weight: 500;
 }
+
+/* =====================================================================
+   Dashboard widget
+   ===================================================================== */
+
+.wphoula-dw-loading {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #666;
+    padding: 8px 0;
+}
+
+.wphoula-dw-stats {
+    display: flex;
+    gap: 16px;
+    justify-content: space-around;
+    text-align: center;
+    padding: 8px 0;
+}
+
+.wphoula-dw-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wphoula-dw-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d2327;
+    font-variant-numeric: tabular-nums;
+}
+
+.wphoula-dw-stat-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.wphoula-dw-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.wphoula-dw-table td {
+    padding: 4px 0;
+    font-size: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.wphoula-dw-table td:first-child {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wphoula-dw-table a {
+    text-decoration: none;
+    color: #2271b1;
+}
+
+.wphoula-dw-table a:hover {
+    color: #135e96;
+}
+
+.wphoula-dw-footer {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+}
+
+/* =====================================================================
+   Posts list column
+   ===================================================================== */
+
+.wphoula-col-url {
+    text-decoration: none;
+    color: #2271b1;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.wphoula-col-url:hover {
+    color: #135e96;
+}
+
+.wphoula-col-none {
+    color: #b0b0b0;
+}
