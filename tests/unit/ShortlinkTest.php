@@ -101,12 +101,21 @@ class ShortlinkTest extends TestCase {
             'flashUrl'  => 'https://hou.la/abc/f',
         );
 
-        Functions\when( 'wp_remote_request' )->justReturn( array(
-            'response' => array( 'code' => 200 ),
-            'body'     => json_encode( $apiResponse ),
-        ) );
+        $qrResponse = array(
+            'dataUrl' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+        );
+
+        Functions\when( 'wp_remote_request' )->alias( function ( $url ) use ( $apiResponse, $qrResponse ) {
+            $body = strpos( $url, '/qrcode' ) !== false ? $qrResponse : $apiResponse;
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => json_encode( $body ),
+            );
+        } );
         Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
-        Functions\when( 'wp_remote_retrieve_body' )->justReturn( json_encode( $apiResponse ) );
+        Functions\when( 'wp_remote_retrieve_body' )->alias( function ( $response ) {
+            return $response['body'];
+        } );
 
         $metaStored = array();
         Functions\when( 'get_post_meta' )->justReturn( '' );
