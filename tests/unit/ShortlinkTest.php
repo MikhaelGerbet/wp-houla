@@ -94,7 +94,7 @@ class ShortlinkTest extends TestCase {
         $apiResponse = array(
             'id'        => 'link-123',
             'shortUrl'  => 'https://hou.la/abc',
-            'qrCodeUrl' => 'https://api.hou.la/api/links/link-123/qrcode',
+            'flashUrl'  => 'https://hou.la/abc/f',
         );
 
         Functions\when( 'wp_remote_request' )->justReturn( array(
@@ -164,7 +164,7 @@ class ShortlinkTest extends TestCase {
     public function test_render_shortcode_qrcode(): void {
         $this->mockConnected();
         Functions\when( 'get_post_meta' )->alias( function ( $post_id, $key, $single = false ) {
-            if ( $key === '_wphoula_qrcode' ) return 'https://api.hou.la/api/links/x/qrcode';
+            if ( $key === '_wphoula_qrcode' ) return 'https://hou.la/x/f';
             return '';
         } );
 

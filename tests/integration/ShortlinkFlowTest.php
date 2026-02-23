@@ -64,7 +64,7 @@ class ShortlinkFlowTest extends TestCase {
         $apiResponse = json_encode( array(
             'id'        => 'link-abc',
             'shortUrl'  => 'https://hou.la/abc',
-            'qrCodeUrl' => 'https://api.hou.la/api/links/link-abc/qrcode',
+            'flashUrl'  => 'https://hou.la/abc/f',
         ) );
 
         Functions\when( 'wp_remote_request' )->justReturn( array(

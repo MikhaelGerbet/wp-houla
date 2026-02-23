@@ -38,7 +38,7 @@ class Wp_Houla_Shortlink {
     /**
      * Generate a Hou.la short link for a given post.
      *
-     * Calls POST /links to create the short link + QR code.
+     * Calls POST /link to create the short link + QR code.
      *
      * @param int  $post_id The post ID.
      * @param bool $force   Force regeneration even if one exists.
@@ -68,7 +68,7 @@ class Wp_Houla_Shortlink {
         $permalink = get_permalink( $post_id );
         $title     = get_the_title( $post_id );
 
-        $result = $this->api->post( '/links', array(
+        $result = $this->api->post( '/link', array(
             'url'   => $permalink,
             'title' => $title,
         ) );
@@ -80,10 +80,10 @@ class Wp_Houla_Shortlink {
 
         $shortlink = isset( $result['shortUrl'] ) ? $result['shortUrl'] : '';
         $link_id   = isset( $result['id'] ) ? $result['id'] : '';
-        $qrcode    = isset( $result['qrCodeUrl'] ) ? $result['qrCodeUrl'] : '';
+        $qrcode    = isset( $result['flashUrl'] ) ? $result['flashUrl'] : '';
 
         if ( empty( $shortlink ) ) {
-            $this->log( 'API returned no shortUrl for post #' . $post_id );
+            $this->log( 'API returned no shortUrl for post #' . $post_id . '. Response: ' . wp_json_encode( $result ) );
             return false;
         }
 
@@ -95,9 +95,9 @@ class Wp_Houla_Shortlink {
             update_post_meta( $post_id, '_wphoula_qrcode', $qrcode );
         }
 
-        // Build a QR code URL from the API if not returned directly
-        if ( empty( $qrcode ) && ! empty( $link_id ) ) {
-            $qr_url = WPHOULA_API_URL . '/api/links/' . $link_id . '/qrcode';
+        // Build flash/QR URL from shortlink if not returned directly
+        if ( empty( $qrcode ) && ! empty( $shortlink ) ) {
+            $qr_url = rtrim( $shortlink, '/' ) . '/f';
             update_post_meta( $post_id, '_wphoula_qrcode', $qr_url );
         }
 

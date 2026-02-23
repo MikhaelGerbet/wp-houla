@@ -49,7 +49,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( $responseBody );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->get( '/links/123' );
+        $result = $api->get( '/link/123' );
 
         $this->assertIsArray( $result );
         $this->assertEquals( '123', $result['id'] );
@@ -66,7 +66,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( $responseBody );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->post( '/links', array( 'originalUrl' => 'https://example.com' ) );
+        $result = $api->post( '/link', array( 'url' => 'https://example.com' ) );
 
         $this->assertIsArray( $result );
         $this->assertEquals( 'new-link', $result['id'] );
@@ -76,7 +76,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_request' )->justReturn( new \WP_Error( 'http_error', 'Connection timeout' ) );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->get( '/links/123' );
+        $result = $api->get( '/link/123' );
 
         $this->assertInstanceOf( \WP_Error::class, $result );
         $this->assertEquals( 'Connection timeout', $result->get_error_message() );
@@ -93,7 +93,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( $responseBody );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->get( '/links/nonexistent' );
+        $result = $api->get( '/link/nonexistent' );
 
         $this->assertInstanceOf( \WP_Error::class, $result );
         $this->assertEquals( 'Not found', $result->get_error_message() );
@@ -106,7 +106,7 @@ class ApiTest extends TestCase {
         } );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->get( '/links' );
+        $result = $api->get( '/link' );
 
         $this->assertInstanceOf( \WP_Error::class, $result );
     }
@@ -126,7 +126,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( $responseBody );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->get( '/links', array( 'page' => 1, 'limit' => 10 ) );
+        $result = $api->get( '/link', array( 'page' => 1, 'limit' => 10 ) );
 
         $this->assertIsArray( $result );
     }
@@ -142,7 +142,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( '{}' );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->delete( '/links/123' );
+        $result = $api->delete( '/link/123' );
 
         $this->assertIsArray( $result );
     }
@@ -161,7 +161,7 @@ class ApiTest extends TestCase {
         Functions\when( 'wp_remote_retrieve_body' )->justReturn( $responseBody );
 
         $api    = new \Wp_Houla_Api();
-        $result = $api->patch( '/links/123', array( 'title' => 'Updated' ) );
+        $result = $api->patch( '/link/123', array( 'title' => 'Updated' ) );
 
         $this->assertIsArray( $result );
         $this->assertEquals( 'Updated', $result['title'] );
