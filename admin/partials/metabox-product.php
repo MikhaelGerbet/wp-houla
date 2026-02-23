@@ -84,15 +84,12 @@ $qrcode    = get_post_meta( $product_id, '_wphoula_qrcode', true );
         <?php if ( $shortlink ) : ?>
             <hr class="wphoula-divider">
             <div class="wphoula-shortlink-row">
-                <label class="wphoula-label"><?php esc_html_e( 'Short link', 'wp-houla' ); ?></label>
-                <div class="wphoula-shortlink-copy">
-                    <input type="text" readonly value="<?php echo esc_attr( $shortlink ); ?>"
-                           class="widefat wphoula-shortlink-input" id="wphoula-shortlink-input">
-                    <button type="button" class="button button-small" id="wphoula-copy-link"
-                            title="<?php esc_attr_e( 'Copy', 'wp-houla' ); ?>">
-                        <span class="dashicons dashicons-clipboard"></span>
-                    </button>
-                </div>
+                <input type="text" readonly value="<?php echo esc_attr( $shortlink ); ?>"
+                       class="wphoula-shortlink-input" id="wphoula-shortlink-input">
+                <button type="button" class="button button-small" id="wphoula-copy-link"
+                        title="<?php esc_attr_e( 'Copy', 'wp-houla' ); ?>">
+                    <span class="dashicons dashicons-clipboard"></span>
+                </button>
             </div>
             <?php if ( $qrcode ) : ?>
                 <div class="wphoula-qrcode-preview">

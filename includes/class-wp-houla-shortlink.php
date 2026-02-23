@@ -113,8 +113,8 @@ class Wp_Houla_Shortlink {
     /**
      * Fetch QR code image (base64 PNG data URL) from the Hou.la API.
      *
-     * Tries to use the user's default QR code template colors.
-     * Falls back to standard black/white if no template is set.
+     * The API automatically applies the user's default template colors
+     * when no custom colors are specified.
      *
      * @param string $link_id UUID of the created link.
      * @return string|false  Data URL (data:image/png;base64,...) or false on failure.
@@ -124,18 +124,6 @@ class Wp_Houla_Shortlink {
             'format' => 'png',
             'width'  => '300',
         );
-
-        // Try to fetch user's default template to use their preferred colors
-        $default_tpl = $this->api->get( '/qrcode/templates/default' );
-        if ( ! is_wp_error( $default_tpl ) && ! empty( $default_tpl['config']['styleOptions'] ) ) {
-            $style = $default_tpl['config']['styleOptions'];
-            if ( ! empty( $style['dotsOptions']['color'] ) ) {
-                $qr_params['darkColor'] = $style['dotsOptions']['color'];
-            }
-            if ( ! empty( $style['backgroundOptions']['color'] ) ) {
-                $qr_params['lightColor'] = $style['backgroundOptions']['color'];
-            }
-        }
 
         $qr_result = $this->api->get( '/link/' . $link_id . '/qrcode', $qr_params );
 

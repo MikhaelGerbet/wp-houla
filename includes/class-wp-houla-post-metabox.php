@@ -91,7 +91,7 @@ class Wp_Houla_Post_Metabox {
                 <!-- Short link -->
                 <div class="wphoula-shortlink-row">
                     <input type="text" readonly value="<?php echo esc_attr( $shortlink ); ?>"
-                           class="widefat wphoula-shortlink-input" id="wphoula-shortlink-input">
+                           class="wphoula-shortlink-input" id="wphoula-shortlink-input">
                     <button type="button" class="button button-small" id="wphoula-copy-link"
                             title="<?php esc_attr_e( 'Copy', 'wp-houla' ); ?>">
                         <span class="dashicons dashicons-clipboard"></span>

@@ -144,6 +144,11 @@
     visibility: visible;
 }
 
+/* Post metabox title left-aligned */
+#wphoula_post_metabox .hndle {
+    text-align: left;
+}
+
 /* Post metabox container */
 .wphoula-post-metabox {
     padding: 4px 0;
@@ -173,6 +178,9 @@
    ===================================================================== */
 
 .wphoula-shortlink-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
     margin-bottom: 10px;
 }
 .wphoula-shortlink-row .wphoula-label {
@@ -184,15 +192,16 @@
     letter-spacing: 0.5px;
     margin-bottom: 4px;
 }
-.wphoula-shortlink-copy {
-    display: flex;
-    gap: 4px;
-}
-.wphoula-shortlink-input {
+.wphoula-shortlink-row .wphoula-shortlink-input {
+    flex: 1;
+    min-width: 0;
     font-size: 12px !important;
     font-family: monospace;
     background: #f6f7f7 !important;
     cursor: text;
+}
+.wphoula-shortlink-row .button {
+    flex-shrink: 0;
 }
 
 .wphoula-qrcode-preview {
