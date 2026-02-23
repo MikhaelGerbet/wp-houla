@@ -90,14 +90,22 @@ class Wp_Houla_Shortlink {
         update_post_meta( $post_id, '_wphoula_shortlink', $shortlink );
         update_post_meta( $post_id, '_wphoula_link_id', $link_id );
 
-        // Fetch QR code image from API (base64 PNG)
+        // Fetch QR code images from API (SVG styled + PNG fallback)
         if ( ! empty( $link_id ) ) {
-            $qr_data_url = $this->fetch_qrcode( $link_id );
-            if ( $qr_data_url ) {
-                update_post_meta( $post_id, '_wphoula_qrcode', $qr_data_url );
+            $qr = $this->fetch_qrcode( $link_id );
+            if ( $qr && ! empty( $qr['svg'] ) ) {
+                update_post_meta( $post_id, '_wphoula_qrcode', $qr['svg'] );
+                update_post_meta( $post_id, '_wphoula_qrcode_svg', $qr['svg'] );
+                update_post_meta( $post_id, '_wphoula_qrcode_png', $qr['png'] ?? '' );
+            } elseif ( $qr && ! empty( $qr['png'] ) ) {
+                update_post_meta( $post_id, '_wphoula_qrcode', $qr['png'] );
+                update_post_meta( $post_id, '_wphoula_qrcode_png', $qr['png'] );
+                delete_post_meta( $post_id, '_wphoula_qrcode_svg' );
             } else {
                 $this->log( 'Failed to fetch QR code for post #' . $post_id );
                 delete_post_meta( $post_id, '_wphoula_qrcode' );
+                delete_post_meta( $post_id, '_wphoula_qrcode_svg' );
+                delete_post_meta( $post_id, '_wphoula_qrcode_png' );
             }
         }
 
@@ -111,33 +119,41 @@ class Wp_Houla_Shortlink {
     // =====================================================================
 
     /**
-     * Fetch QR code image (base64 PNG data URL) from the Hou.la API.
+     * Fetch QR code in both SVG (styled) and PNG (basic) formats.
      *
-     * The API automatically applies the user's default template colors
-     * when no custom colors are specified.
+     * The API automatically applies the user's default template styles
+     * (rounded dots, custom corners, gradients) when no custom colors are specified.
+     * The styled result is an SVG. We also fetch a basic PNG for compatibility.
      *
      * @param string $link_id UUID of the created link.
-     * @return string|false  Data URL (data:image/png;base64,...) or false on failure.
+     * @return array|false  Array with 'svg' and 'png' data URLs, or false on failure.
      */
     private function fetch_qrcode( $link_id ) {
-        $qr_params = array(
+        $result = array( 'svg' => '', 'png' => '' );
+
+        // 1) Styled QR code (SVG) — uses default template automatically
+        $svg_result = $this->api->get( '/link/' . $link_id . '/qrcode', array( 'width' => '300' ) );
+        if ( ! is_wp_error( $svg_result ) && ! empty( $svg_result['dataUrl'] ) ) {
+            $result['svg'] = $svg_result['dataUrl'];
+        }
+
+        // 2) Basic PNG QR code — pass explicit format=png with white colors to force basic rendering
+        $png_result = $this->api->get( '/link/' . $link_id . '/qrcode', array(
             'format' => 'png',
             'width'  => '300',
-        );
+            'darkColor'  => '#000000',
+            'lightColor' => '#FFFFFF',
+        ) );
+        if ( ! is_wp_error( $png_result ) && ! empty( $png_result['dataUrl'] ) ) {
+            $result['png'] = $png_result['dataUrl'];
+        }
 
-        $qr_result = $this->api->get( '/link/' . $link_id . '/qrcode', $qr_params );
-
-        if ( is_wp_error( $qr_result ) ) {
-            $this->log( 'QR code API error: ' . $qr_result->get_error_message() );
+        if ( empty( $result['svg'] ) && empty( $result['png'] ) ) {
+            $this->log( 'QR code API returned no data for link ' . $link_id );
             return false;
         }
 
-        if ( ! empty( $qr_result['dataUrl'] ) ) {
-            return $qr_result['dataUrl'];
-        }
-
-        $this->log( 'QR code API returned no dataUrl. Response: ' . wp_json_encode( $qr_result ) );
-        return false;
+        return $result;
     }
 
     // =====================================================================

@@ -77,11 +77,13 @@ class Wp_Houla_Post_Metabox {
      * @param WP_Post $post Current post object.
      */
     public function render( $post ) {
-        $post_id   = $post->ID;
-        $shortlink = get_post_meta( $post_id, '_wphoula_shortlink', true );
-        $link_id   = get_post_meta( $post_id, '_wphoula_link_id', true );
-        $qrcode    = get_post_meta( $post_id, '_wphoula_qrcode', true );
-        $nonce     = wp_create_nonce( 'wphoula_post_metabox' );
+        $post_id    = $post->ID;
+        $shortlink  = get_post_meta( $post_id, '_wphoula_shortlink', true );
+        $link_id    = get_post_meta( $post_id, '_wphoula_link_id', true );
+        $qrcode     = get_post_meta( $post_id, '_wphoula_qrcode', true );
+        $qrcode_svg = get_post_meta( $post_id, '_wphoula_qrcode_svg', true );
+        $qrcode_png = get_post_meta( $post_id, '_wphoula_qrcode_png', true );
+        $nonce      = wp_create_nonce( 'wphoula_post_metabox' );
 
         ?>
         <div class="wphoula-post-metabox" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-nonce="<?php echo esc_attr( $nonce ); ?>">
@@ -104,10 +106,24 @@ class Wp_Houla_Post_Metabox {
                         <img src="<?php echo esc_attr( $qrcode ); ?>"
                              alt="QR Code" width="140" height="140"
                              class="wphoula-qrcode-img">
-                        <a href="<?php echo esc_attr( $qrcode ); ?>" download="qrcode.svg" class="button button-small">
-                            <span class="dashicons dashicons-download"></span>
-                            <?php esc_html_e( 'Download QR', 'wp-houla' ); ?>
-                        </a>
+                        <div class="wphoula-qrcode-downloads">
+                            <?php if ( $qrcode_svg ) : ?>
+                                <a href="<?php echo esc_attr( $qrcode_svg ); ?>" download="qrcode.svg" class="button button-small">
+                                    <span class="dashicons dashicons-download"></span> SVG
+                                </a>
+                            <?php endif; ?>
+                            <?php if ( $qrcode_png ) : ?>
+                                <a href="<?php echo esc_attr( $qrcode_png ); ?>" download="qrcode.png" class="button button-small">
+                                    <span class="dashicons dashicons-download"></span> PNG
+                                </a>
+                            <?php endif; ?>
+                            <?php if ( ! $qrcode_svg && ! $qrcode_png ) : ?>
+                                <a href="<?php echo esc_attr( $qrcode ); ?>" download="qrcode" class="button button-small">
+                                    <span class="dashicons dashicons-download"></span>
+                                    <?php esc_html_e( 'Download QR', 'wp-houla' ); ?>
+                                </a>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 <?php endif; ?>
 

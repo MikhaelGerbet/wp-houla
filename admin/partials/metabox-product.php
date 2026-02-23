@@ -91,13 +91,25 @@ $qrcode    = get_post_meta( $product_id, '_wphoula_qrcode', true );
                     <span class="dashicons dashicons-clipboard"></span>
                 </button>
             </div>
+            <?php
+                $qrcode_svg = get_post_meta( $post_id, '_wphoula_qrcode_svg', true );
+                $qrcode_png = get_post_meta( $post_id, '_wphoula_qrcode_png', true );
+            ?>
             <?php if ( $qrcode ) : ?>
                 <div class="wphoula-qrcode-preview">
                     <img src="<?php echo esc_attr( $qrcode ); ?>" alt="QR Code" width="120" height="120" class="wphoula-qrcode-img">
-                    <a href="<?php echo esc_attr( $qrcode ); ?>" download="qrcode.svg" class="button button-small">
-                        <span class="dashicons dashicons-download"></span>
-                        <?php esc_html_e( 'Download QR', 'wp-houla' ); ?>
-                    </a>
+                    <div class="wphoula-qrcode-downloads">
+                        <?php if ( $qrcode_svg ) : ?>
+                            <a href="<?php echo esc_attr( $qrcode_svg ); ?>" download="qrcode.svg" class="button button-small">
+                                <span class="dashicons dashicons-download"></span> SVG
+                            </a>
+                        <?php endif; ?>
+                        <?php if ( $qrcode_png ) : ?>
+                            <a href="<?php echo esc_attr( $qrcode_png ); ?>" download="qrcode.png" class="button button-small">
+                                <span class="dashicons dashicons-download"></span> PNG
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endif; ?>
         <?php endif; ?>
