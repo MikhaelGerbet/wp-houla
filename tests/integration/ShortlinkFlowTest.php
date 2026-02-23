@@ -57,6 +57,10 @@ class ShortlinkFlowTest extends TestCase {
             $storedMeta[ $key ] = $value;
             return true;
         } );
+        Functions\when( 'delete_post_meta' )->alias( function ( $post_id, $key ) use ( &$storedMeta ) {
+            unset( $storedMeta[ $key ] );
+            return true;
+        } );
     }
 
     public function test_full_shortlink_generation_from_save_post(): void {
