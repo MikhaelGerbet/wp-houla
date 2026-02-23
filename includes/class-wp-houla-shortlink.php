@@ -80,7 +80,6 @@ class Wp_Houla_Shortlink {
 
         $shortlink = isset( $result['shortUrl'] ) ? $result['shortUrl'] : '';
         $link_id   = isset( $result['id'] ) ? $result['id'] : '';
-        $qrcode    = isset( $result['flashUrl'] ) ? $result['flashUrl'] : '';
 
         if ( empty( $shortlink ) ) {
             $this->log( 'API returned no shortUrl for post #' . $post_id . '. Response: ' . wp_json_encode( $result ) );
@@ -91,19 +90,66 @@ class Wp_Houla_Shortlink {
         update_post_meta( $post_id, '_wphoula_shortlink', $shortlink );
         update_post_meta( $post_id, '_wphoula_link_id', $link_id );
 
-        if ( $qrcode ) {
-            update_post_meta( $post_id, '_wphoula_qrcode', $qrcode );
-        }
-
-        // Build flash/QR URL from shortlink if not returned directly
-        if ( empty( $qrcode ) && ! empty( $shortlink ) ) {
-            $qr_url = rtrim( $shortlink, '/' ) . '/f';
-            update_post_meta( $post_id, '_wphoula_qrcode', $qr_url );
+        // Fetch QR code image from API (base64 PNG)
+        if ( ! empty( $link_id ) ) {
+            $qr_data_url = $this->fetch_qrcode( $link_id );
+            if ( $qr_data_url ) {
+                update_post_meta( $post_id, '_wphoula_qrcode', $qr_data_url );
+            } else {
+                $this->log( 'Failed to fetch QR code for post #' . $post_id );
+                delete_post_meta( $post_id, '_wphoula_qrcode' );
+            }
         }
 
         $this->log( 'Shortlink generated for post #' . $post_id . ': ' . $shortlink );
 
         return $shortlink;
+    }
+
+    // =====================================================================
+    // QR code generation
+    // =====================================================================
+
+    /**
+     * Fetch QR code image (base64 PNG data URL) from the Hou.la API.
+     *
+     * Tries to use the user's default QR code template colors.
+     * Falls back to standard black/white if no template is set.
+     *
+     * @param string $link_id UUID of the created link.
+     * @return string|false  Data URL (data:image/png;base64,...) or false on failure.
+     */
+    private function fetch_qrcode( $link_id ) {
+        $qr_params = array(
+            'format' => 'png',
+            'width'  => '300',
+        );
+
+        // Try to fetch user's default template to use their preferred colors
+        $default_tpl = $this->api->get( '/qrcode/templates/default' );
+        if ( ! is_wp_error( $default_tpl ) && ! empty( $default_tpl['config']['styleOptions'] ) ) {
+            $style = $default_tpl['config']['styleOptions'];
+            if ( ! empty( $style['dotsOptions']['color'] ) ) {
+                $qr_params['darkColor'] = $style['dotsOptions']['color'];
+            }
+            if ( ! empty( $style['backgroundOptions']['color'] ) ) {
+                $qr_params['lightColor'] = $style['backgroundOptions']['color'];
+            }
+        }
+
+        $qr_result = $this->api->get( '/link/' . $link_id . '/qrcode', $qr_params );
+
+        if ( is_wp_error( $qr_result ) ) {
+            $this->log( 'QR code API error: ' . $qr_result->get_error_message() );
+            return false;
+        }
+
+        if ( ! empty( $qr_result['dataUrl'] ) ) {
+            return $qr_result['dataUrl'];
+        }
+
+        $this->log( 'QR code API returned no dataUrl. Response: ' . wp_json_encode( $qr_result ) );
+        return false;
     }
 
     // =====================================================================

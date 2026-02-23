@@ -73,6 +73,12 @@
 
 .wphoula-metabox {
     padding: 4px 0;
+    position: relative;
+}
+.wphoula-metabox .wphoula-metabox__spinner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
 }
 
 .wphoula-metabox__status {
@@ -130,8 +136,23 @@
 }
 
 .wphoula-metabox__spinner {
-    float: right;
-    margin-top: -2px;
+    visibility: hidden;
+    vertical-align: middle;
+    margin: 0 0 0 4px;
+}
+.wphoula-metabox__spinner.is-active {
+    visibility: visible;
+}
+
+/* Post metabox container */
+.wphoula-post-metabox {
+    padding: 4px 0;
+    position: relative;
+}
+.wphoula-post-metabox .wphoula-metabox__spinner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
 }
 
 /* =====================================================================

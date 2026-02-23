@@ -96,8 +96,8 @@ $qrcode    = get_post_meta( $product_id, '_wphoula_qrcode', true );
             </div>
             <?php if ( $qrcode ) : ?>
                 <div class="wphoula-qrcode-preview">
-                    <img src="<?php echo esc_url( $qrcode ); ?>" alt="QR Code" width="120" height="120" class="wphoula-qrcode-img">
-                    <a href="<?php echo esc_url( $qrcode ); ?>" download class="button button-small">
+                    <img src="<?php echo esc_attr( $qrcode ); ?>" alt="QR Code" width="120" height="120" class="wphoula-qrcode-img">
+                    <a href="<?php echo esc_attr( $qrcode ); ?>" download="qrcode.png" class="button button-small">
                         <span class="dashicons dashicons-download"></span>
                         <?php esc_html_e( 'Download QR', 'wp-houla' ); ?>
                     </a>

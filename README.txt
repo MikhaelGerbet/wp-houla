@@ -4,7 +4,7 @@ Tags: short links, qr code, url shortener, woocommerce, social commerce
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 WC requires at least: 7.0
@@ -191,6 +191,25 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 
 == Changelog ==
 
+= 1.2.4 - 2026-02-23 =
+* Fix QR code: fetch real PNG image from API instead of storing a redirect URL
+* QR code uses the user's default template colors when available
+* Fix metabox title icon vertical alignment (icon + text centered)
+* Fix spinner positioning (absolute, no longer floats awkwardly)
+* Use esc_attr for data URL img src (esc_url strips data: protocol)
+* Add download="qrcode.png" attribute to QR download button
+
+= 1.2.3 - 2026-02-23 =
+* Fix critical bug: API endpoint was /links (404) instead of /link
+* Fix QR code URL: use flashUrl from API response
+* Improved error logging with verbose API response details
+
+= 1.2.2 - 2026-02-23 =
+* Fix shortlink metabox missing on WooCommerce products
+* Add transition_post_status hook for Gutenberg compatibility
+* Add woocommerce_new_product / woocommerce_update_product hooks
+* Improved debug logging
+
 = 1.2.1 - 2026-02-23 =
 * Fix tabs not working when plugin is under WooCommerce Marketing menu
 * Default post types now limited to Articles, Pages, and Products (instead of all public types)
@@ -217,6 +236,15 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 * Complete French translation (fr_FR)
 
 == Upgrade Notice ==
+
+= 1.2.4 =
+QR codes now display correctly with real PNG images from the API using your preferred template colors.
+
+= 1.2.3 =
+Critical fix: short link generation was failing with a 404 error.
+
+= 1.2.2 =
+Shortlink metabox now appears on WooCommerce products.
 
 = 1.2.1 =
 Fix tabs and default post types selection.

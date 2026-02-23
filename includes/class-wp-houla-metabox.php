@@ -38,8 +38,8 @@ class Wp_Houla_Metabox {
             return;
         }
 
-        $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
-                       . esc_html__( 'Hou.la — Product Sync', 'wp-houla' );
+        $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="20" height="20" style="vertical-align:middle;margin-right:4px;" alt="">'
+                       . '<span style="vertical-align:middle;">' . esc_html__( 'Hou.la — Product Sync', 'wp-houla' ) . '</span>';
 
         add_meta_box(
             'wphoula_product_metabox',

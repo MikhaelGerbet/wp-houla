@@ -53,8 +53,8 @@ class Wp_Houla_Post_Metabox {
         $post_types = apply_filters( 'wphoula_allowed_post_types', array_values( $all_types ) );
 
         foreach ( $post_types as $type ) {
-            $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="16" height="16" style="vertical-align:text-bottom;margin-right:4px;" alt="">'
-                           . esc_html__( 'Hou.la', 'wp-houla' );
+            $metabox_title = '<img src="' . esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ) . '" width="20" height="20" style="vertical-align:middle;margin-right:4px;" alt="">'
+                           . '<span style="vertical-align:middle;">' . esc_html__( 'Hou.la', 'wp-houla' ) . '</span>';
 
             add_meta_box(
                 'wphoula_post_metabox',
@@ -101,10 +101,10 @@ class Wp_Houla_Post_Metabox {
                 <!-- QR Code -->
                 <?php if ( $qrcode ) : ?>
                     <div class="wphoula-qrcode-preview">
-                        <img src="<?php echo esc_url( $qrcode ); ?>"
+                        <img src="<?php echo esc_attr( $qrcode ); ?>"
                              alt="QR Code" width="140" height="140"
                              class="wphoula-qrcode-img">
-                        <a href="<?php echo esc_url( $qrcode ); ?>" download class="button button-small">
+                        <a href="<?php echo esc_attr( $qrcode ); ?>" download="qrcode.png" class="button button-small">
                             <span class="dashicons dashicons-download"></span>
                             <?php esc_html_e( 'Download QR', 'wp-houla' ); ?>
                         </a>
