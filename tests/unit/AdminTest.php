@@ -33,7 +33,8 @@ class AdminTest extends TestCase {
         Functions\when( 'get_current_screen' )->justReturn( null );
     }
 
-    public function test_add_menu_page(): void {
+    public function test_add_menu_page_with_woocommerce(): void {
+        Functions\when( 'wphoula_is_woocommerce_active' )->justReturn( true );
         Functions\expect( 'add_submenu_page' )
             ->once()
             ->with(
@@ -43,6 +44,24 @@ class AdminTest extends TestCase {
                 'manage_woocommerce',
                 'wp-houla',
                 \Mockery::type( 'array' )
+            );
+
+        $admin = new \Wp_Houla_Admin();
+        $admin->add_menu_page();
+    }
+
+    public function test_add_menu_page_standalone(): void {
+        Functions\when( 'wphoula_is_woocommerce_active' )->justReturn( false );
+        Functions\expect( 'add_menu_page' )
+            ->once()
+            ->with(
+                \Mockery::type( 'string' ),
+                \Mockery::type( 'string' ),
+                'manage_options',
+                'wp-houla',
+                \Mockery::type( 'array' ),
+                \Mockery::type( 'string' ),
+                81
             );
 
         $admin = new \Wp_Houla_Admin();

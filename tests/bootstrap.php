@@ -57,6 +57,15 @@ if ( ! defined( 'WPHOULA_LOG' ) ) {
 }
 
 // =========================================================================
+// Plugin helper functions (normally defined in wp-houla.php)
+// =========================================================================
+
+// wphoula_is_woocommerce_active() is NOT defined here.
+// Brain\Monkey requires that the function does NOT exist natively
+// so that Functions\when() / Functions\expect() can intercept it.
+// Each test must stub it via Brain\Monkey\Functions\when().
+
+// =========================================================================
 // WordPress mock classes (global namespace — loaded once for all tests)
 // =========================================================================
 
