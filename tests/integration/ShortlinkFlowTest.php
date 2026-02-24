@@ -176,17 +176,25 @@ class ShortlinkFlowTest extends TestCase {
             return '';
         } );
 
-        $apiResponse = json_encode( array(
+        $linkData = array(
             'id'       => 'link-new',
             'shortUrl' => 'https://hou.la/regenerated',
-        ) );
+        );
+        $qrData = array(
+            'dataUrl' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+        );
 
-        Functions\expect( 'wp_remote_request' )->once()->andReturn( array(
-            'response' => array( 'code' => 200 ),
-            'body'     => $apiResponse,
-        ) );
+        Functions\when( 'wp_remote_request' )->alias( function ( $url ) use ( $linkData, $qrData ) {
+            $body = strpos( $url, '/qrcode' ) !== false ? $qrData : $linkData;
+            return array(
+                'response' => array( 'code' => 200 ),
+                'body'     => json_encode( $body ),
+            );
+        } );
         Functions\when( 'wp_remote_retrieve_response_code' )->justReturn( 200 );
-        Functions\when( 'wp_remote_retrieve_body' )->justReturn( $apiResponse );
+        Functions\when( 'wp_remote_retrieve_body' )->alias( function ( $response ) {
+            return $response['body'];
+        } );
 
         $shortlink = new \Wp_Houla_Shortlink();
         $result    = $shortlink->generate_shortlink( 42, true );
