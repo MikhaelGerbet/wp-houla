@@ -442,7 +442,7 @@ composer run phpcs
 
 - Website: [hou.la](https://hou.la)
 - Report a bug: [GitHub Issues](https://github.com/MikhaelGerbet/wp-houla/issues)
-- Email: contact@hou.la
+- Email: hello@hou.la
 
 ---
 
