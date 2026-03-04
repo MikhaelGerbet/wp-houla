@@ -89,6 +89,16 @@
             syncCategories.push($(this).val());
         });
 
+        // Category -> Collection mapping
+        var catCollectionMap = {};
+        $('.wphoula-collection-select').each(function () {
+            var catId = $(this).data('cat-id');
+            var collectionId = $(this).val();
+            if (catId && collectionId) {
+                catCollectionMap[catId] = collectionId;
+            }
+        });
+
         var data = {
             action: 'wphoula_save_settings',
             nonce: nonce,
@@ -96,9 +106,16 @@
             sync_on_publish: $('#wphoula-sync-on-publish').is(':checked') ? 1 : 0,
             debug: $('#wphoula-debug').is(':checked') ? 1 : 0,
             api_url: ($('#wphoula-api-url').val() || '').trim(),
+            price_adjustment_type: $('#wphoula-price-adj-type').val() || 'none',
+            price_adjustment_value: $('#wphoula-price-adj-value').val() || 0,
             'allowed_post_types[]': postTypes,
             'sync_categories[]': syncCategories,
         };
+
+        // Add category_collection_map as nested keys
+        for (var catId in catCollectionMap) {
+            data['category_collection_map[' + catId + ']'] = catCollectionMap[catId];
+        }
 
         $.post(ajaxUrl, data, function (response) {
             $btn.prop('disabled', false);
@@ -484,6 +501,244 @@
             }
         }).fail(function () {
             $('#wphoula-dw-loading').text('Network error');
+        });
+    });
+
+    // =================================================================
+    // Price adjustment UI
+    // =================================================================
+
+    $(document).on('change', '#wphoula-price-adj-type', function () {
+        var type = $(this).val();
+        var $row = $('#wphoula-price-adj-row');
+        var $unit = $('#wphoula-price-adj-unit');
+
+        if (type === 'none') {
+            $row.hide();
+        } else {
+            $row.show();
+            if (type === 'percent_up' || type === 'percent_down') {
+                $unit.text('%');
+            } else {
+                // Currency symbol from WC (fallback EUR)
+                $unit.text(wphoulaAdmin.currencySymbol || 'EUR');
+            }
+            updatePriceExample();
+        }
+    });
+
+    $(document).on('input', '#wphoula-price-adj-value', function () {
+        updatePriceExample();
+    });
+
+    function updatePriceExample() {
+        var type = $('#wphoula-price-adj-type').val();
+        var value = parseFloat($('#wphoula-price-adj-value').val()) || 0;
+        var $example = $('#wphoula-price-example');
+        var currency = wphoulaAdmin.currencySymbol || 'EUR';
+
+        if (type === 'none' || value <= 0) {
+            $example.text('');
+            return;
+        }
+
+        var samplePrice = 100;
+        var result;
+
+        switch (type) {
+            case 'percent_up':
+                result = samplePrice * (1 + value / 100);
+                $example.text('Example: ' + samplePrice + ' ' + currency + ' -> ' + result.toFixed(2) + ' ' + currency + ' (+' + value + '%)');
+                break;
+            case 'percent_down':
+                result = samplePrice * (1 - value / 100);
+                $example.text('Example: ' + samplePrice + ' ' + currency + ' -> ' + result.toFixed(2) + ' ' + currency + ' (-' + value + '%)');
+                break;
+            case 'fixed_up':
+                result = samplePrice + value;
+                $example.text('Example: ' + samplePrice + ' ' + currency + ' -> ' + result.toFixed(2) + ' ' + currency + ' (+' + value + ' ' + currency + ')');
+                break;
+            case 'fixed_down':
+                result = Math.max(0, samplePrice - value);
+                $example.text('Example: ' + samplePrice + ' ' + currency + ' -> ' + result.toFixed(2) + ' ' + currency + ' (-' + value + ' ' + currency + ')');
+                break;
+        }
+    }
+
+    // =================================================================
+    // Sync tab initialisation: load collections + synced products
+    // =================================================================
+
+    var collectionsLoaded = false;
+
+    $(document).on('click', '.wphoula-tabs .nav-tab[data-tab="sync"]', function () {
+        if (!collectionsLoaded) {
+            collectionsLoaded = true;
+            loadCollections();
+            loadSyncedProducts();
+        }
+    });
+
+    // If sync tab is already active on page load
+    $(document).ready(function () {
+        if ($('.wphoula-tabs .nav-tab[data-tab="sync"]').hasClass('nav-tab-active')) {
+            collectionsLoaded = true;
+            loadCollections();
+            loadSyncedProducts();
+        }
+
+        // Trigger price example on load if value is set
+        if ($('#wphoula-price-adj-type').val() !== 'none') {
+            updatePriceExample();
+        }
+    });
+
+    // -----------------------------------------------------------------
+    // Load collections and populate dropdowns
+    // -----------------------------------------------------------------
+
+    function loadCollections() {
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_collections',
+            nonce: nonce
+        }, function (response) {
+            if (!response.success || !response.data) return;
+
+            var collections = response.data;
+
+            $('.wphoula-collection-select').each(function () {
+                var $select = $(this);
+                var $hidden = $select.closest('td').find('.wphoula-collection-value');
+                var savedValue = $hidden.val();
+
+                // Keep the first "- Not mapped -" option
+                $select.find('option:gt(0)').remove();
+
+                for (var i = 0; i < collections.length; i++) {
+                    var c = collections[i];
+                    var $opt = $('<option></option>')
+                        .val(c.id)
+                        .text(c.title);
+                    if (c.id === savedValue) {
+                        $opt.prop('selected', true);
+                    }
+                    $select.append($opt);
+                }
+            });
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // Load synced products
+    // -----------------------------------------------------------------
+
+    function loadSyncedProducts() {
+        var $loading = $('#wphoula-synced-products-loading');
+        var $table = $('#wphoula-synced-products');
+        var $empty = $('#wphoula-synced-products-empty');
+
+        $loading.show();
+        $table.hide();
+        $empty.hide();
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_synced_products',
+            nonce: nonce
+        }, function (response) {
+            $loading.hide();
+
+            if (!response.success || !response.data || response.data.length === 0) {
+                $empty.show();
+                return;
+            }
+
+            var products = response.data;
+            var $tbody = $table.find('tbody');
+            $tbody.empty();
+
+            for (var i = 0; i < products.length; i++) {
+                var p = products[i];
+                var statusClass = p.status === 'active' ? 'wphoula-status-active' : 'wphoula-status-draft';
+                var statusLabel = p.status === 'active' ? 'Active' : (p.status || 'Draft');
+                var stockLabel = (p.stock !== undefined && p.stock !== null) ? p.stock : '-';
+                var wcPrice = p.wc_price ? p.wc_price : '-';
+                var houlaPrice = p.price ? p.price : '-';
+                var synced = p.last_synced ? p.last_synced : '-';
+                var name = p.name || p.title || 'Unknown';
+
+                $tbody.append(
+                    '<tr>' +
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + escapeHtml(name) + '</td>' +
+                    '<td>' + escapeHtml(String(wcPrice)) + '</td>' +
+                    '<td>' + escapeHtml(String(houlaPrice)) + '</td>' +
+                    '<td><span class="' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
+                    '<td>' + escapeHtml(String(stockLabel)) + '</td>' +
+                    '<td>' + escapeHtml(synced) + '</td>' +
+                    '</tr>'
+                );
+            }
+
+            $table.show();
+        }).fail(function () {
+            $loading.hide();
+            $empty.show();
+        });
+    }
+
+    // Utility: escape HTML
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
+
+    // -----------------------------------------------------------------
+    // Auto-map collections button
+    // -----------------------------------------------------------------
+
+    $(document).on('click', '#wphoula-auto-map', function () {
+        var $btn = $(this);
+        var $status = $('#wphoula-automap-status');
+
+        $btn.prop('disabled', true);
+        $status.show().text('Creating collections...').css('color', '#666');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_auto_map_collections',
+            nonce: nonce
+        }, function (response) {
+            $btn.prop('disabled', false);
+
+            if (response.success && response.data) {
+                var d = response.data;
+                $status.text(d.created + ' collections created, ' + d.total + ' mapped.').css('color', '#46b450');
+
+                // Update all dropdowns with the new mapping
+                if (d.mapping) {
+                    // Reload collections to show newly created ones
+                    loadCollections();
+
+                    // After slight delay (to let loadCollections finish), set dropdown values
+                    setTimeout(function () {
+                        for (var catId in d.mapping) {
+                            var collectionId = d.mapping[catId];
+                            var $select = $('.wphoula-collection-select[data-cat-id="' + catId + '"]');
+                            if ($select.length) {
+                                $select.val(collectionId);
+                                $select.closest('td').find('.wphoula-collection-value').val(collectionId);
+                            }
+                        }
+                    }, 1500);
+                }
+
+                setTimeout(function () { $status.fadeOut(); }, 5000);
+            } else {
+                $status.text(response.data || 'Error').css('color', '#dc3232');
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false);
+            $status.text('Network error').css('color', '#dc3232');
         });
     });
 

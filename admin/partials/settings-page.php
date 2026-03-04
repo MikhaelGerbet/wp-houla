@@ -28,9 +28,8 @@ $last_order_at   = $options->get( 'last_order_at' );
 ?>
 
 <div class="wrap wphoula-settings">
-    <h1>
-        <img src="<?php echo esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ); ?>" alt="Hou.la" class="wphoula-logo" width="28" height="28">
-        <?php esc_html_e( 'Hou.la Settings', 'wp-houla' ); ?>
+    <h1 class="wphoula-page-title">
+        <img src="<?php echo esc_url( WPHOULA_URL . 'admin/images/houla-icon.svg' ); ?>" alt="Hou.la" class="wphoula-logo-full">
     </h1>
 
     <?php if ( isset( $_GET['wphoula_connected'] ) && $_GET['wphoula_connected'] === '1' ) : ?>
@@ -235,6 +234,165 @@ $last_order_at   = $options->get( 'last_order_at' );
 
             <?php endif; ?>
         </div>
+
+        <?php if ( $is_connected ) : ?>
+        <!-- ============================================================= -->
+        <!-- Price adjustment                                               -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Price Adjustment', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Apply a price markup or discount when syncing to Hou.la. Useful to set different prices on your bio page.', 'wp-houla' ); ?>
+            </p>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Adjustment type', 'wp-houla' ); ?></th>
+                    <td>
+                        <?php
+                        $price_adj_type  = $options->get( 'price_adjustment_type' );
+                        $price_adj_value = $options->get( 'price_adjustment_value' );
+                        ?>
+                        <select id="wphoula-price-adj-type">
+                            <option value="none" <?php selected( $price_adj_type, 'none' ); ?>>
+                                <?php esc_html_e( 'No adjustment (sync original prices)', 'wp-houla' ); ?>
+                            </option>
+                            <option value="percent_up" <?php selected( $price_adj_type, 'percent_up' ); ?>>
+                                <?php esc_html_e( 'Markup by percentage (+%)', 'wp-houla' ); ?>
+                            </option>
+                            <option value="percent_down" <?php selected( $price_adj_type, 'percent_down' ); ?>>
+                                <?php esc_html_e( 'Discount by percentage (-%)', 'wp-houla' ); ?>
+                            </option>
+                            <option value="fixed_up" <?php selected( $price_adj_type, 'fixed_up' ); ?>>
+                                <?php esc_html_e( 'Markup by fixed amount (+)', 'wp-houla' ); ?>
+                            </option>
+                            <option value="fixed_down" <?php selected( $price_adj_type, 'fixed_down' ); ?>>
+                                <?php esc_html_e( 'Discount by fixed amount (-)', 'wp-houla' ); ?>
+                            </option>
+                        </select>
+                    </td>
+                </tr>
+                <tr id="wphoula-price-adj-row" <?php echo $price_adj_type === 'none' ? 'style="display:none;"' : ''; ?>>
+                    <th><?php esc_html_e( 'Value', 'wp-houla' ); ?></th>
+                    <td>
+                        <input type="number" id="wphoula-price-adj-value"
+                               value="<?php echo esc_attr( $price_adj_value ); ?>"
+                               min="0" step="0.01" class="small-text" style="width: 100px;">
+                        <span id="wphoula-price-adj-unit">
+                            <?php
+                            if ( in_array( $price_adj_type, array( 'percent_up', 'percent_down' ), true ) ) {
+                                echo '%';
+                            } else {
+                                echo esc_html( function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : 'EUR' );
+                            }
+                            ?>
+                        </span>
+                        <p class="description" id="wphoula-price-example"></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- Category -> Collection mapping                                 -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Category - Collection Mapping', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Map your WooCommerce categories to Hou.la collections. Products will be automatically placed in the matching collection during sync.', 'wp-houla' ); ?>
+            </p>
+
+            <?php
+            $cat_collection_map = $options->get( 'category_collection_map' );
+            if ( ! is_array( $cat_collection_map ) ) {
+                $cat_collection_map = array();
+            }
+            ?>
+
+            <table class="wphoula-mapping-table widefat" id="wphoula-mapping-table">
+                <thead>
+                    <tr>
+                        <th style="width:40%;"><?php esc_html_e( 'WooCommerce Category', 'wp-houla' ); ?></th>
+                        <th style="width:10%; text-align:center;">&#8594;</th>
+                        <th style="width:40%;"><?php esc_html_e( 'Hou.la Collection', 'wp-houla' ); ?></th>
+                        <th style="width:10%;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
+                        foreach ( $product_cats as $cat ) :
+                            $mapped_collection = isset( $cat_collection_map[ $cat->term_id ] )
+                                ? $cat_collection_map[ $cat->term_id ]
+                                : '';
+                    ?>
+                    <tr data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>">
+                        <td>
+                            <strong><?php echo esc_html( $cat->name ); ?></strong>
+                            <span class="description">(<?php echo esc_html( $cat->count ); ?> <?php esc_html_e( 'products', 'wp-houla' ); ?>)</span>
+                        </td>
+                        <td style="text-align:center; color:#999;">&#8594;</td>
+                        <td>
+                            <select class="wphoula-collection-select" data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>" style="width:100%;">
+                                <option value=""><?php esc_html_e( '- Not mapped -', 'wp-houla' ); ?></option>
+                            </select>
+                            <input type="hidden" class="wphoula-collection-value" value="<?php echo esc_attr( $mapped_collection ); ?>">
+                        </td>
+                        <td></td>
+                    </tr>
+                    <?php
+                        endforeach;
+                    endif;
+                    ?>
+                </tbody>
+            </table>
+
+            <p style="margin-top: 12px;">
+                <button type="button" class="button button-secondary" id="wphoula-auto-map">
+                    <span class="dashicons dashicons-admin-generic" style="line-height:28px;"></span>
+                    <?php esc_html_e( 'Auto-create collections from categories', 'wp-houla' ); ?>
+                </button>
+                <span id="wphoula-automap-status" style="display:none; margin-left: 8px;"></span>
+            </p>
+            <p class="description">
+                <?php esc_html_e( 'Auto-create will create a Hou.la collection for each WooCommerce category and map them automatically.', 'wp-houla' ); ?>
+            </p>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- Synced products table                                          -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Synced Products', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Products currently synchronized on Hou.la from this WooCommerce store.', 'wp-houla' ); ?>
+            </p>
+
+            <div id="wphoula-synced-products-loading" style="padding: 20px; text-align: center;">
+                <span class="spinner is-active" style="float:none; margin: 0 8px 0 0;"></span>
+                <?php esc_html_e( 'Loading synced products...', 'wp-houla' ); ?>
+            </div>
+
+            <table class="wphoula-products-table widefat" id="wphoula-synced-products" style="display:none;">
+                <thead>
+                    <tr>
+                        <th style="width:5%;">#</th>
+                        <th style="width:30%;"><?php esc_html_e( 'Product', 'wp-houla' ); ?></th>
+                        <th style="width:12%;"><?php esc_html_e( 'WC Price', 'wp-houla' ); ?></th>
+                        <th style="width:12%;"><?php esc_html_e( 'Hou.la Price', 'wp-houla' ); ?></th>
+                        <th style="width:10%;"><?php esc_html_e( 'Status', 'wp-houla' ); ?></th>
+                        <th style="width:10%;"><?php esc_html_e( 'Stock', 'wp-houla' ); ?></th>
+                        <th style="width:21%;"><?php esc_html_e( 'Last synced', 'wp-houla' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div id="wphoula-synced-products-empty" style="display:none; padding: 20px; text-align: center; color: #666;">
+                <?php esc_html_e( 'No products synced yet. Click "Sync All Products Now" to start.', 'wp-houla' ); ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- ============================================================= -->
@@ -349,6 +507,12 @@ $last_order_at   = $options->get( 'last_order_at' );
                     </td>
                 </tr>
             </table>
+
+            <p>
+                <button type="button" class="button button-primary" id="wphoula-save-settings">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
         </div>
     </div>
 </div>

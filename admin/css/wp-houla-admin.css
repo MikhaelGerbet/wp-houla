@@ -346,3 +346,93 @@
 .wphoula-col-none {
     color: #b0b0b0;
 }
+
+/* =====================================================================
+   Full logo (settings header)
+   ===================================================================== */
+
+.wphoula-logo-full {
+    height: 32px;
+    width: auto;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* =====================================================================
+   Price adjustment
+   ===================================================================== */
+
+#wphoula-price-example {
+    margin-top: 6px;
+    font-style: italic;
+    color: #667eea;
+}
+
+/* =====================================================================
+   Category -> Collection mapping table
+   ===================================================================== */
+
+.wphoula-mapping-table {
+    border-collapse: collapse;
+}
+.wphoula-mapping-table thead th {
+    background: #f6f7f7;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+}
+.wphoula-mapping-table tbody td {
+    padding: 8px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e0e0e0;
+}
+.wphoula-mapping-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.wphoula-mapping-table .description {
+    color: #999;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+/* =====================================================================
+   Synced products table
+   ===================================================================== */
+
+.wphoula-products-table {
+    border-collapse: collapse;
+}
+.wphoula-products-table thead th {
+    background: #f6f7f7;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+}
+.wphoula-products-table tbody td {
+    padding: 8px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+}
+.wphoula-products-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+/* Product sync status badges */
+.wphoula-status-active {
+    display: inline-block;
+    background: #d4edda;
+    color: #155724;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.wphoula-status-draft {
+    display: inline-block;
+    background: #fff3cd;
+    color: #856404;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}

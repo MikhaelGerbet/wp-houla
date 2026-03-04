@@ -44,6 +44,11 @@ class Wp_Houla_Options {
             // Debug / Dev mode
             'debug'              => false,
             'api_url'            => '',  // Custom API URL (empty = production https://hou.la)
+            // Price adjustment
+            'price_adjustment_type'  => 'none',  // none, percent_up, percent_down, fixed_up, fixed_down
+            'price_adjustment_value' => 0,
+            // Category -> Collection mapping
+            'category_collection_map' => array(),  // cat_term_id => collection_id
             // Post type filtering (default: post, page, product)
             'allowed_post_types' => array( 'post', 'page', 'product' ),
         ) );

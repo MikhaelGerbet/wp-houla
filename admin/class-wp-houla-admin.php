@@ -66,6 +66,7 @@ class Wp_Houla_Admin {
                 'nonce'           => wp_create_nonce( 'wphoula_admin' ),
                 'metaboxNonce'    => wp_create_nonce( 'wphoula_metabox' ),
                 'isConnected'     => $this->auth->is_connected(),
+                'currencySymbol'  => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : 'EUR',
                 'i18n'            => array(
                     'syncing'     => __( 'Syncing...', 'wp-houla' ),
                     'synced'      => __( 'Synced', 'wp-houla' ),
@@ -228,16 +229,165 @@ class Wp_Houla_Admin {
             $api_url = esc_url_raw( trim( $_POST['api_url'] ) );
         }
 
+        // Price adjustment
+        $price_adj_type  = 'none';
+        $price_adj_value = 0;
+        if ( isset( $_POST['price_adjustment_type'] ) ) {
+            $allowed_types = array( 'none', 'percent_up', 'percent_down', 'fixed_up', 'fixed_down' );
+            $price_adj_type = sanitize_text_field( $_POST['price_adjustment_type'] );
+            if ( ! in_array( $price_adj_type, $allowed_types, true ) ) {
+                $price_adj_type = 'none';
+            }
+        }
+        if ( isset( $_POST['price_adjustment_value'] ) ) {
+            $price_adj_value = abs( floatval( $_POST['price_adjustment_value'] ) );
+        }
+
+        // Category -> Collection mapping
+        $cat_collection_map = array();
+        if ( isset( $_POST['category_collection_map'] ) && is_array( $_POST['category_collection_map'] ) ) {
+            foreach ( $_POST['category_collection_map'] as $cat_id => $collection_id ) {
+                $cat_id = absint( $cat_id );
+                $collection_id = sanitize_text_field( $collection_id );
+                if ( $cat_id > 0 && ! empty( $collection_id ) ) {
+                    $cat_collection_map[ $cat_id ] = $collection_id;
+                }
+            }
+        }
+
         $this->options->set_many( array(
-            'auto_sync'          => $auto_sync,
-            'sync_on_publish'    => $sync_on_publish,
-            'debug'              => $debug,
-            'allowed_post_types' => $allowed_post_types,
-            'sync_categories'    => $sync_categories,
-            'api_url'            => $api_url,
+            'auto_sync'              => $auto_sync,
+            'sync_on_publish'        => $sync_on_publish,
+            'debug'                  => $debug,
+            'allowed_post_types'     => $allowed_post_types,
+            'sync_categories'        => $sync_categories,
+            'api_url'                => $api_url,
+            'price_adjustment_type'  => $price_adj_type,
+            'price_adjustment_value' => $price_adj_value,
+            'category_collection_map' => $cat_collection_map,
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );
+    }
+
+    /**
+     * AJAX: Get synced products from Hou.la API.
+     */
+    public function ajax_get_synced_products() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $api    = new Wp_Houla_Api();
+        $result = $api->get( '/ecommerce/products?platform=woocommerce' );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        // Enrich with WC product info
+        $products = array();
+        if ( is_array( $result ) ) {
+            foreach ( $result as $product ) {
+                $ext_id = isset( $product['externalProductId'] ) ? $product['externalProductId'] : '';
+                $wc_price   = '';
+                $wc_product = $ext_id ? wc_get_product( intval( $ext_id ) ) : null;
+                if ( $wc_product ) {
+                    $wc_price = $wc_product->get_price();
+                }
+
+                $products[] = array(
+                    'id'              => $product['id'] ?? '',
+                    'title'           => $product['title'] ?? '',
+                    'externalId'      => $ext_id,
+                    'priceCents'      => $product['priceCents'] ?? 0,
+                    'currency'        => $product['currency'] ?? 'EUR',
+                    'status'          => $product['status'] ?? 'draft',
+                    'stockQuantity'   => $product['stockQuantity'] ?? null,
+                    'trackStock'      => $product['trackStock'] ?? false,
+                    'lastSyncedAt'    => $product['lastSyncedAt'] ?? null,
+                    'imageUrl'        => $product['imageUrl'] ?? null,
+                    'wcPrice'         => $wc_price,
+                    'wcCurrency'      => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '',
+                );
+            }
+        }
+
+        wp_send_json_success( $products );
+    }
+
+    /**
+     * AJAX: Get collections from Hou.la API.
+     */
+    public function ajax_get_collections() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $api    = new Wp_Houla_Api();
+        $result = $api->get( '/ecommerce/collections' );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        wp_send_json_success( is_array( $result ) ? $result : array() );
+    }
+
+    /**
+     * AJAX: Auto-create collections from WC categories.
+     */
+    public function ajax_auto_map_collections() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        // Get all WC product categories
+        $product_cats = get_terms( array(
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ) );
+
+        if ( is_wp_error( $product_cats ) || empty( $product_cats ) ) {
+            wp_send_json_error( __( 'No WooCommerce categories found.', 'wp-houla' ) );
+        }
+
+        $categories = array();
+        foreach ( $product_cats as $cat ) {
+            $categories[] = array(
+                'id'    => (string) $cat->term_id,
+                'name'  => $cat->name,
+                'count' => $cat->count,
+            );
+        }
+
+        $api    = new Wp_Houla_Api();
+        $result = $api->post( '/ecommerce/collections/auto-map', array(
+            'categories' => $categories,
+        ) );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        // Save the mapping to options
+        $mapping = isset( $result['mapping'] ) ? $result['mapping'] : array();
+        $cat_collection_map = array();
+        foreach ( $mapping as $m ) {
+            $cat_collection_map[ intval( $m['external_id'] ) ] = $m['collection_id'];
+        }
+
+        $this->options->set( 'category_collection_map', $cat_collection_map );
+
+        wp_send_json_success( $result );
     }
 
     // =====================================================================

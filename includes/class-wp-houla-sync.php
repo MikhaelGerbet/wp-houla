@@ -299,6 +299,7 @@ class Wp_Houla_Sync {
         $data = array(
             'external_id'     => (string) $product->get_id(),
             'platform'        => 'woocommerce',
+            'site_url'        => get_site_url(),
             'name'            => $product->get_name(),
             'description'     => wp_strip_all_tags( $product->get_short_description() ?: $product->get_description() ),
             'url'             => $product->get_permalink(),
@@ -313,10 +314,22 @@ class Wp_Houla_Sync {
             'type'            => $product->get_type(),
         );
 
+        // Apply price adjustment
+        $adj_type  = $this->options->get( 'price_adjustment_type' );
+        $adj_value = (float) $this->options->get( 'price_adjustment_value' );
+        if ( $adj_type !== 'none' && $adj_value > 0 ) {
+            $data['price']         = $this->adjust_price( $data['price'], $adj_type, $adj_value );
+            $data['regular_price'] = $this->adjust_price( $data['regular_price'], $adj_type, $adj_value );
+        }
+
         // Sale price
         $sale_price = $product->get_sale_price();
         if ( $sale_price !== '' ) {
-            $data['sale_price'] = (float) $sale_price;
+            $adjusted = (float) $sale_price;
+            if ( $adj_type !== 'none' && $adj_value > 0 ) {
+                $adjusted = $this->adjust_price( $adjusted, $adj_type, $adj_value );
+            }
+            $data['sale_price'] = $adjusted;
         }
 
         // Stock quantity
@@ -339,6 +352,24 @@ class Wp_Houla_Sync {
         $categories = wp_get_post_terms( $product->get_id(), 'product_cat', array( 'fields' => 'names' ) );
         if ( ! is_wp_error( $categories ) && ! empty( $categories ) ) {
             $data['categories'] = $categories;
+        }
+
+        // Category -> Collection mapping: resolve collection_ids
+        $cat_collection_map = $this->options->get( 'category_collection_map' );
+        if ( ! empty( $cat_collection_map ) && is_array( $cat_collection_map ) ) {
+            $cat_ids = wp_get_post_terms( $product->get_id(), 'product_cat', array( 'fields' => 'ids' ) );
+            if ( ! is_wp_error( $cat_ids ) && ! empty( $cat_ids ) ) {
+                $collection_ids = array();
+                foreach ( $cat_ids as $cat_id ) {
+                    if ( isset( $cat_collection_map[ $cat_id ] ) && ! empty( $cat_collection_map[ $cat_id ] ) ) {
+                        $collection_ids[] = $cat_collection_map[ $cat_id ];
+                    }
+                }
+                $collection_ids = array_unique( $collection_ids );
+                if ( ! empty( $collection_ids ) ) {
+                    $data['collection_ids'] = array_values( $collection_ids );
+                }
+            }
         }
 
         // Tags
@@ -491,6 +522,33 @@ class Wp_Houla_Sync {
     private function log( $message ) {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( '[WP-Houla Sync] ' . $message );
+        }
+    }
+
+    /**
+     * Apply a price adjustment (markup or discount).
+     *
+     * @param float  $price    Original price.
+     * @param string $type     Adjustment type (percent_up, percent_down, fixed_up, fixed_down).
+     * @param float  $value    Adjustment value.
+     * @return float Adjusted price (never negative).
+     */
+    private function adjust_price( $price, $type, $value ) {
+        if ( $price <= 0 || $value <= 0 ) {
+            return $price;
+        }
+
+        switch ( $type ) {
+            case 'percent_up':
+                return round( $price * ( 1 + $value / 100 ), 2 );
+            case 'percent_down':
+                return max( 0, round( $price * ( 1 - $value / 100 ), 2 ) );
+            case 'fixed_up':
+                return round( $price + $value, 2 );
+            case 'fixed_down':
+                return max( 0, round( $price - $value, 2 ) );
+            default:
+                return $price;
         }
     }
 }
