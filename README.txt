@@ -4,7 +4,7 @@ Tags: short links, qr code, url shortener, woocommerce, social commerce
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.2.4
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 WC requires at least: 7.0
@@ -38,6 +38,7 @@ Turn your social media bio into a storefront:
 * **Real-time sync** - products are pushed to Hou.la when created, updated, or deleted
 * **Complete product data** - name, prices, sale prices, images, gallery, categories, tags, SKU, weight, dimensions, stock levels, variations, and attributes
 * **Batch sync** - push your entire catalog to Hou.la in one click
+* **Category filtering** - optionally limit sync to specific WooCommerce product categories
 * **Automatic order creation** - purchases made on a Hou.la bio page create WooCommerce orders with full billing, shipping, and line item data
 * **Stock management** - inventory is decremented when orders arrive and restocked on refunds
 * **Refund handling** - webhook-triggered refund processing with automatic WooCommerce status updates
@@ -133,7 +134,7 @@ Short links are generated automatically for every published post from this point
 
 = Does the plugin work without WooCommerce? =
 
-WooCommerce must be installed and active for the plugin to load. Once activated, short links and QR codes are generated for all public post types whether or not you use the commerce features.
+Yes. Short links and QR codes work on all public post types regardless of WooCommerce. The commerce features (product sync, order reception) require WooCommerce 7.0+.
 
 = Do I need a paid Hou.la account? =
 
@@ -184,12 +185,20 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 1. **Settings - Connection** - One-click OAuth 2.0 connection to your Hou.la workspace. Displays connected status, workspace name, and account email.
 2. **Settings - Sync** - Toggle automatic product sync, view synced product count and last sync date, launch a full batch synchronization.
 3. **Settings - Orders** - Order statistics, webhook URL for your Hou.la account, and last order timestamp.
-4. **Settings - Debug** - Enable debug logging, view plugin version, PHP version, WooCommerce version, REST API base URL, and webhook secret status.
+4. **Settings - Debug** - Enable debug logging, set custom API URL for development, view plugin version, PHP version, WooCommerce version, REST API base URL, and webhook secret status.
 5. **Post editor metabox** - Hou.la short link with copy button, QR code preview with download, and click/scan statistics for the current post.
 6. **Product editor metabox** - Sync status badge, last sync date, commerce statistics (views, clicks, sales, revenue), re-sync and unsync controls.
 7. **Shortcode output** - QR code image rendered in post content using the `[wphoula qrcode=1]` shortcode.
 
 == Changelog ==
+
+= 1.3.0 - 2026-03-15 =
+* Full WooCommerce sync: API ecommerce endpoints now functional (product CRUD, batch sync, stock updates)
+* Ecommerce connection registration: webhook URL and secret are automatically sent to Hou.la on first sync
+* Order webhook dispatch: Hou.la pushes order.paid and order.refunded events to WooCommerce when bio page purchases complete
+* Category filtering: limit product sync to specific WooCommerce categories via the Sync tab
+* Development mode: configurable API URL in the Debug tab for local/staging testing (ngrok, local IP, etc.)
+* Connection status tracking: products synced count, orders pushed count, last sync/push timestamps
 
 = 1.2.4 - 2026-02-23 =
 * Fix QR code: fetch real PNG image from API instead of storing a redirect URL
@@ -236,6 +245,9 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 * Complete French translation (fr_FR)
 
 == Upgrade Notice ==
+
+= 1.3.0 =
+WooCommerce sync is now fully functional. Products sync to Hou.la bio pages, orders flow back to WooCommerce. Category filtering and development mode added.
 
 = 1.2.4 =
 QR codes now display correctly with real PNG images from the API using your preferred template colors.

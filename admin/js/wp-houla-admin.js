@@ -84,14 +84,23 @@
             postTypes.push($(this).val());
         });
 
-        $.post(ajaxUrl, {
+        var syncCategories = [];
+        $('.wphoula-sync-category:checked').each(function () {
+            syncCategories.push($(this).val());
+        });
+
+        var data = {
             action: 'wphoula_save_settings',
             nonce: nonce,
             auto_sync: $('#wphoula-auto-sync').is(':checked') ? 1 : 0,
             sync_on_publish: $('#wphoula-sync-on-publish').is(':checked') ? 1 : 0,
             debug: $('#wphoula-debug').is(':checked') ? 1 : 0,
-            'allowed_post_types[]': postTypes
-        }, function (response) {
+            api_url: ($('#wphoula-api-url').val() || '').trim(),
+            'allowed_post_types[]': postTypes,
+            'sync_categories[]': syncCategories,
+        };
+
+        $.post(ajaxUrl, data, function (response) {
             $btn.prop('disabled', false);
             if (response.success) {
                 // Brief visual feedback

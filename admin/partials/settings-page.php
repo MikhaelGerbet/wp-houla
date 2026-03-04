@@ -178,6 +178,41 @@ $last_order_at   = $options->get( 'last_order_at' );
                         </td>
                     </tr>
                     <tr>
+                        <th><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></th>
+                        <td>
+                            <fieldset>
+                                <legend class="screen-reader-text"><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></legend>
+                                <?php
+                                $sync_categories = $options->get( 'sync_categories' );
+                                if ( ! is_array( $sync_categories ) ) {
+                                    $sync_categories = array();
+                                }
+                                $product_cats = get_terms( array(
+                                    'taxonomy'   => 'product_cat',
+                                    'hide_empty' => false,
+                                    'orderby'    => 'name',
+                                    'order'      => 'ASC',
+                                ) );
+                                if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
+                                    foreach ( $product_cats as $cat ) :
+                                        $checked = in_array( (int) $cat->term_id, array_map( 'intval', $sync_categories ), true );
+                                ?>
+                                    <label style="display: block; margin-bottom: 4px;">
+                                        <input type="checkbox" class="wphoula-sync-category" value="<?php echo esc_attr( $cat->term_id ); ?>" <?php checked( $checked ); ?>>
+                                        <?php echo esc_html( $cat->name ); ?>
+                                        <span class="description">(<?php echo esc_html( $cat->count ); ?>)</span>
+                                    </label>
+                                <?php
+                                    endforeach;
+                                else :
+                                ?>
+                                    <p class="description"><?php esc_html_e( 'No WooCommerce categories found.', 'wp-houla' ); ?></p>
+                                <?php endif; ?>
+                                <p class="description"><?php esc_html_e( 'Select which categories to sync. Leave all unchecked to sync all products.', 'wp-houla' ); ?></p>
+                            </fieldset>
+                        </td>
+                    </tr>
+                    <tr>
                         <th><?php esc_html_e( 'Products synced', 'wp-houla' ); ?></th>
                         <td><strong><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
                     </tr>
@@ -255,6 +290,31 @@ $last_order_at   = $options->get( 'last_order_at' );
                             <input type="checkbox" id="wphoula-debug" <?php checked( $debug ); ?>>
                             <?php esc_html_e( 'Enable debug logging (writes to wp-content/debug.log)', 'wp-houla' ); ?>
                         </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'API URL', 'wp-houla' ); ?></th>
+                    <td>
+                        <?php
+                        $api_url = $options->get( 'api_url' );
+                        $current_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
+                        ?>
+                        <input type="url" id="wphoula-api-url" value="<?php echo esc_attr( $api_url ); ?>"
+                               placeholder="<?php echo esc_attr( WPHOULA_DEFAULT_API_URL ); ?>"
+                               class="regular-text" style="width: 400px;">
+                        <p class="description">
+                            <?php esc_html_e( 'Custom API URL for development. Leave empty for production (https://hou.la).', 'wp-houla' ); ?>
+                            <br>
+                            <?php
+                            printf(
+                                esc_html__( 'Current: %s', 'wp-houla' ),
+                                '<code>' . esc_html( $current_url ) . '</code>'
+                            );
+                            ?>
+                        </p>
+                        <p class="description" style="margin-top: 8px; color: #d63638;">
+                            <?php esc_html_e( 'Dev mode tips: use an ngrok URL, local IP (e.g. http://192.168.1.100:53001), or http://localhost:53001 if WP runs locally too.', 'wp-houla' ); ?>
+                        </p>
                     </td>
                 </tr>
                 <tr>

@@ -10,7 +10,7 @@
  * Plugin Name:       WP-Houla - Short Links, QR Codes & Social Commerce
  * Plugin URI:        https://hou.la/
  * Description:       Connect WordPress to Hou.la for automatic short links, QR codes on every post, and optional WooCommerce product sync with your bio page for social selling via Stripe.
- * Version:           1.2.5
+ * Version:           1.3.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Hou.la
@@ -33,7 +33,7 @@ if ( ! defined( 'WPINC' ) ) {
 // Constants
 // =========================================================================
 
-define( 'WPHOULA_VERSION', '1.2.5' );
+define( 'WPHOULA_VERSION', '1.3.0' );
 define( 'WPHOULA_DIR', WP_PLUGIN_DIR . '/' . basename( dirname( __FILE__ ) ) );
 define( 'WPHOULA_URL', plugins_url( '/', __FILE__ ) );
 define( 'WPHOULA_BASENAME', plugin_basename( __FILE__ ) );
@@ -42,10 +42,27 @@ define( 'WPHOULA_OPTIONS', 'wphoula-options' );
 define( 'WPHOULA_AUTHORIZED', 'wphoula-authorized' );
 
 // API URLs - change to staging/local for development
-define( 'WPHOULA_API_URL', 'https://hou.la' );
-define( 'WPHOULA_OAUTH_URL', 'https://hou.la/oauth/authorize' );
-define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_API_URL . '/api/oauth/token' );
+define( 'WPHOULA_DEFAULT_API_URL', 'https://hou.la' );
 define( 'WPHOULA_OAUTH_CLIENT_ID', 'wp-houla' );
+
+/**
+ * Get the configured API URL.
+ * Reads from plugin options (Debug tab), falls back to production URL.
+ *
+ * @return string API base URL (no trailing slash).
+ */
+function wphoula_get_api_url() {
+    $options = get_option( WPHOULA_OPTIONS, array() );
+    $url = isset( $options['api_url'] ) && ! empty( $options['api_url'] )
+        ? $options['api_url']
+        : WPHOULA_DEFAULT_API_URL;
+    return rtrim( $url, '/' );
+}
+
+// Legacy constants (use wphoula_get_api_url() for API URL in new code)
+define( 'WPHOULA_API_URL', WPHOULA_DEFAULT_API_URL );
+define( 'WPHOULA_OAUTH_URL', WPHOULA_DEFAULT_API_URL . '/oauth/authorize' );
+define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_DEFAULT_API_URL . '/api/oauth/token' );
 
 define( 'WPHOULA_LOG', WPHOULA_DIR . '/log/debug.txt' );
 

@@ -58,6 +58,11 @@ class Wp_Houla_Sync {
             return;
         }
 
+        // Category filter check
+        if ( ! $this->should_sync_product( $product ) ) {
+            return;
+        }
+
         self::$syncing = true;
         $data          = $this->format_product( $product );
         $result        = $this->api->post( '/ecommerce/products', $data );
@@ -84,6 +89,11 @@ class Wp_Houla_Sync {
      */
     public function on_product_updated( $product_id, $product ) {
         if ( self::$syncing || ! $this->should_sync() ) {
+            return;
+        }
+
+        // Category filter check
+        if ( ! $this->should_sync_product( $product ) ) {
             return;
         }
 
@@ -189,12 +199,18 @@ class Wp_Houla_Sync {
      * Full synchronization of all published WooCommerce products.
      * Called via WP-Cron or admin AJAX.
      *
+     * Respects the sync_categories option: when set, only syncs
+     * products belonging to the specified WooCommerce categories.
+     *
      * @return array Summary (synced, skipped, errors).
      */
     public function batch_sync() {
         if ( ! $this->should_sync() ) {
             return array( 'synced' => 0, 'skipped' => 0, 'errors' => 0, 'message' => 'Not connected' );
         }
+
+        // Register the connection with webhook info before syncing
+        $this->register_connection();
 
         // Prevent concurrent batch syncs
         $lock = get_transient( 'wphoula_batch_sync_lock' );
@@ -209,13 +225,23 @@ class Wp_Houla_Sync {
         $skipped = 0;
         $errors  = 0;
 
+        // Category filtering
+        $sync_categories = $this->options->get( 'sync_categories' );
+        $query_args = array(
+            'status' => 'publish',
+            'limit'  => $limit,
+            'page'   => $page,
+            'return' => 'objects',
+        );
+
+        // Filter by WooCommerce categories if configured
+        if ( ! empty( $sync_categories ) && is_array( $sync_categories ) ) {
+            $query_args['category'] = array_map( 'absint', $sync_categories );
+        }
+
         do {
-            $products = wc_get_products( array(
-                'status' => 'publish',
-                'limit'  => $limit,
-                'page'   => $page,
-                'return' => 'objects',
-            ) );
+            $query_args['page'] = $page;
+            $products = wc_get_products( $query_args );
 
             foreach ( $products as $product ) {
                 $product_id = $product->get_id();
@@ -375,6 +401,43 @@ class Wp_Houla_Sync {
     }
 
     // =====================================================================
+    // Connection registration
+    // =====================================================================
+
+    /**
+     * Register (or update) the ecommerce connection with Hou.la.
+     * Sends the webhook callback URL and secret so Hou.la can
+     * push order events (order.paid, order.refunded) back to WP.
+     */
+    public function register_connection() {
+        $webhook_secret = $this->options->get( 'webhook_secret' );
+
+        // Auto-generate webhook secret if not yet set
+        if ( empty( $webhook_secret ) ) {
+            $webhook_secret = wp_generate_password( 40, false );
+            $this->options->set( 'webhook_secret', $webhook_secret );
+        }
+
+        $data = array(
+            'platform'       => 'woocommerce',
+            'site_url'       => get_site_url(),
+            'webhook_url'    => rest_url( 'wp-houla/v1/webhook' ),
+            'webhook_secret' => $webhook_secret,
+            'push_orders'    => true,
+            'push_refunds'   => true,
+            'push_stock'     => false,
+        );
+
+        $result = $this->api->post( '/ecommerce/connect', $data );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Failed to register connection: ' . $result->get_error_message() );
+        } else {
+            $this->log( 'Ecommerce connection registered successfully.' );
+        }
+    }
+
+    // =====================================================================
     // Utilities
     // =====================================================================
 
@@ -385,6 +448,29 @@ class Wp_Houla_Sync {
      */
     private function should_sync() {
         return $this->auth->is_connected() && $this->options->get( 'auto_sync' );
+    }
+
+    /**
+     * Check if a specific product should be synced based on category filters.
+     *
+     * @param int|WC_Product $product Product ID or object.
+     * @return bool
+     */
+    private function should_sync_product( $product ) {
+        $sync_categories = $this->options->get( 'sync_categories' );
+        if ( empty( $sync_categories ) || ! is_array( $sync_categories ) ) {
+            return true; // No filter = sync everything
+        }
+
+        $product_id = is_object( $product ) ? $product->get_id() : $product;
+        $product_cats = wp_get_post_terms( $product_id, 'product_cat', array( 'fields' => 'ids' ) );
+
+        if ( is_wp_error( $product_cats ) || empty( $product_cats ) ) {
+            return false; // No categories and we have a filter = skip
+        }
+
+        // Check if any of the product's categories match the filter
+        return ! empty( array_intersect( $product_cats, array_map( 'absint', $sync_categories ) ) );
     }
 
     /**

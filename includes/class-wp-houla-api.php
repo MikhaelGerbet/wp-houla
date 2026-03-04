@@ -93,7 +93,8 @@ class Wp_Houla_Api {
             return new WP_Error( 'wphoula_not_connected', __( 'Not connected to Hou.la.', 'wp-houla' ) );
         }
 
-        $url = WPHOULA_API_URL . '/api' . $endpoint;
+        $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
+        $url = $api_url . '/api' . $endpoint;
 
         if ( ! empty( $query ) ) {
             $url = add_query_arg( $query, $url );

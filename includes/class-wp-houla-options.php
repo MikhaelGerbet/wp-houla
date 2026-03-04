@@ -33,6 +33,7 @@ class Wp_Houla_Options {
             // Sync settings
             'auto_sync'          => true,
             'sync_on_publish'    => true,
+            'sync_categories'    => array(),  // WooCommerce category IDs to sync (empty = all)
             'last_full_sync'     => 0,
             'products_synced'    => 0,
             // Webhook
@@ -40,8 +41,9 @@ class Wp_Houla_Options {
             // Orders
             'orders_received'    => 0,
             'last_order_at'      => 0,
-            // Debug
+            // Debug / Dev mode
             'debug'              => false,
+            'api_url'            => '',  // Custom API URL (empty = production https://hou.la)
             // Post type filtering (default: post, page, product)
             'allowed_post_types' => array( 'post', 'page', 'product' ),
         ) );

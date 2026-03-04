@@ -153,6 +153,7 @@ In the **Sync** tab:
 
 - **Auto-sync** (enabled by default) - WooCommerce products are pushed to Hou.la on every change.
 - **Sync on publish** (enabled by default) - newly published products are synced immediately.
+- **Category filter** - select which WooCommerce categories to sync. Leave all unchecked to sync all products.
 - **Batch sync** - push the entire catalog in one click (useful after initial installation or import).
 
 ### 3. Orders
@@ -162,6 +163,27 @@ Orders are received via webhook. No manual configuration is required. The webhoo
 ### 4. Debug
 
 Enable debug mode in the **Debug** tab to log API calls to the WordPress debug log (`WP_DEBUG_LOG`).
+
+### 5. Development Mode
+
+For local development or staging environments, set a custom API URL in the **Debug** tab:
+
+1. Go to the **Debug** tab
+2. Enter your API URL in the **API URL** field (e.g. `http://localhost:53001`, `http://192.168.1.100:53001`, or an ngrok URL)
+3. Click **Save Settings**
+
+The plugin will use this URL for all API calls instead of the production `https://hou.la`.
+
+**Options for local testing:**
+
+| Scenario | API URL |
+|----------|---------|
+| API runs locally, WP runs on the same machine | `http://localhost:53001` |
+| API runs locally, WP runs on a remote server | Use [ngrok](https://ngrok.com): `https://abc123.ngrok-free.app` |
+| API runs on local network | `http://192.168.1.100:53001` |
+| Staging server | `https://staging.hou.la` |
+
+Leave the field empty to use the production API (`https://hou.la`).
 
 ---
 
@@ -213,6 +235,8 @@ Three modes:
 2. **Manual** - "Sync" and "Remove" buttons in the product metabox.
 3. **Batch** - full catalog sync from settings (products processed in pages of 50).
 
+**Category filtering:** optionally limit sync to specific WooCommerce product categories via the Sync tab. Products outside the selected categories are skipped during both automatic hooks and batch sync.
+
 **Synced data:**
 
 | Field | Description |
@@ -252,10 +276,10 @@ Accessible via **WooCommerce > Hou.la**:
 
 | Tab | Content |
 |-----|---------|
-| Connection | Status, workspace, email, connect/disconnect button |
-| Sync | Auto-sync options, last sync date, counter, batch button |
+| Connection | Status, workspace, email, connect/disconnect button, post type filter |
+| Sync | Auto-sync options, category filter, last sync date, counter, batch button |
 | Orders | Order counter, last order date, webhook URL |
-| Debug | Log toggle, version info |
+| Debug | Log toggle, custom API URL, version info |
 
 ---
 
@@ -296,7 +320,7 @@ Short links on Hou.la remain active. Manage them from your Hou.la dashboard.
 
 ### Does the plugin work without WooCommerce?
 
-WooCommerce is required for activation. Once activated, short links and QR codes work on all public post types regardless of commerce features.
+Yes. Short links and QR codes work on all public post types regardless of WooCommerce. The commerce features (product sync, order reception, webhook) require WooCommerce 7.0+.
 
 ### Is a paid account required?
 

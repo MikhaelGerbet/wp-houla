@@ -216,11 +216,25 @@ class Wp_Houla_Admin {
             $allowed_post_types = array_map( 'sanitize_key', $_POST['allowed_post_types'] );
         }
 
+        // Category filter for product sync
+        $sync_categories = array();
+        if ( isset( $_POST['sync_categories'] ) && is_array( $_POST['sync_categories'] ) ) {
+            $sync_categories = array_map( 'absint', $_POST['sync_categories'] );
+        }
+
+        // Custom API URL (dev mode)
+        $api_url = '';
+        if ( isset( $_POST['api_url'] ) ) {
+            $api_url = esc_url_raw( trim( $_POST['api_url'] ) );
+        }
+
         $this->options->set_many( array(
             'auto_sync'          => $auto_sync,
             'sync_on_publish'    => $sync_on_publish,
             'debug'              => $debug,
             'allowed_post_types' => $allowed_post_types,
+            'sync_categories'    => $sync_categories,
+            'api_url'            => $api_url,
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );
