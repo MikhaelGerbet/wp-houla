@@ -353,6 +353,67 @@ $last_order_at   = $options->get( 'last_order_at' );
         </div>
 
         <!-- ============================================================= -->
+        <!-- Product Identifiers (EAN / ISBN) mapping                       -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Product Identifiers (EAN / ISBN)', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'WooCommerce does not have native EAN/ISBN fields. Select which product meta field contains these values. They are used for Google Shopping and for product grouping on the Hou.la marketplace.', 'wp-houla' ); ?>
+            </p>
+
+            <?php
+            $id_meta_map = $options->get( 'identifier_meta_map' );
+            if ( ! is_array( $id_meta_map ) ) {
+                $id_meta_map = array( 'ean' => '', 'isbn' => '' );
+            }
+            ?>
+
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <?php esc_html_e( 'EAN / GTIN', 'wp-houla' ); ?>
+                        <p class="description" style="font-weight:normal;"><?php esc_html_e( 'GTIN-8, GTIN-12 (UPC), GTIN-13 (EAN-13), GTIN-14', 'wp-houla' ); ?></p>
+                    </th>
+                    <td>
+                        <select id="wphoula-id-meta-ean" class="wphoula-id-meta-select" data-id-key="ean" style="min-width: 320px;">
+                            <option value=""><?php esc_html_e( '— Not configured —', 'wp-houla' ); ?></option>
+                        </select>
+                        <input type="hidden" id="wphoula-id-meta-ean-saved" value="<?php echo esc_attr( $id_meta_map['ean'] ?? '' ); ?>">
+                        <span class="wphoula-id-meta-loading" style="display:none;">
+                            <span class="spinner is-active" style="float:none; margin:0 4px;"></span>
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <?php esc_html_e( 'ISBN', 'wp-houla' ); ?>
+                        <p class="description" style="font-weight:normal;"><?php esc_html_e( 'International Standard Book Number', 'wp-houla' ); ?></p>
+                    </th>
+                    <td>
+                        <select id="wphoula-id-meta-isbn" class="wphoula-id-meta-select" data-id-key="isbn" style="min-width: 320px;">
+                            <option value=""><?php esc_html_e( '— Not configured —', 'wp-houla' ); ?></option>
+                        </select>
+                        <input type="hidden" id="wphoula-id-meta-isbn-saved" value="<?php echo esc_attr( $id_meta_map['isbn'] ?? '' ); ?>">
+                        <span class="wphoula-id-meta-loading" style="display:none;">
+                            <span class="spinner is-active" style="float:none; margin:0 4px;"></span>
+                        </span>
+                    </td>
+                </tr>
+            </table>
+
+            <p class="description">
+                <span class="dashicons dashicons-info-outline" style="font-size:16px; width:16px; height:16px; color:#2271b1; margin-right:4px;"></span>
+                <?php esc_html_e( 'Common plugins: Yoast SEO, "Product GTIN for WooCommerce", "EAN for WooCommerce (WPFactory)", WooCommerce native (9.2+). The dropdown auto-detects installed plugins.', 'wp-houla' ); ?>
+            </p>
+
+            <p style="margin-top: 12px;">
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
+        </div>
+
+        <!-- ============================================================= -->
         <!-- Category -> Collection mapping                                 -->
         <!-- ============================================================= -->
         <div class="wphoula-card" style="margin-top: 20px;">

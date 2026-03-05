@@ -546,6 +546,21 @@ class Wp_Houla_Sync {
             }
         }
 
+        // Product identifiers (EAN/GTIN, ISBN) — read from mapped meta keys
+        $id_meta_map = $this->options->get( 'identifier_meta_map' );
+        if ( is_array( $id_meta_map ) ) {
+            $product_id = $product->get_id();
+            foreach ( $id_meta_map as $id_key => $meta_key ) {
+                if ( empty( $meta_key ) ) {
+                    continue;
+                }
+                $value = get_post_meta( $product_id, $meta_key, true );
+                if ( ! empty( $value ) ) {
+                    $data[ $id_key ] = sanitize_text_field( $value );
+                }
+            }
+        }
+
         return $data;
     }
 

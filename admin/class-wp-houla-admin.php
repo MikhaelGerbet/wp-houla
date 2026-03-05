@@ -313,6 +313,19 @@ class Wp_Houla_Admin {
         // Tracking sync
         $sync_tracking = ! empty( $_POST['sync_tracking'] );
 
+        // Product identifiers meta mapping (ean/isbn => WC meta_key)
+        $identifier_meta_map = array( 'ean' => '', 'isbn' => '' );
+        if ( isset( $_POST['identifier_meta_map'] ) && is_array( $_POST['identifier_meta_map'] ) ) {
+            $valid_ids = array( 'ean', 'isbn' );
+            foreach ( $_POST['identifier_meta_map'] as $id_key => $meta_key ) {
+                $id_key   = sanitize_key( $id_key );
+                $meta_key = sanitize_text_field( $meta_key );
+                if ( in_array( $id_key, $valid_ids, true ) ) {
+                    $identifier_meta_map[ $id_key ] = $meta_key;
+                }
+            }
+        }
+
         $this->options->set_many( array(
             'auto_sync'              => $auto_sync,
             'sync_on_publish'        => $sync_on_publish,
@@ -325,9 +338,114 @@ class Wp_Houla_Admin {
             'category_collection_map' => $cat_collection_map,
             'order_status_map'       => $order_status_map,
             'sync_tracking'          => $sync_tracking,
+            'identifier_meta_map'    => $identifier_meta_map,
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );
+    }
+
+    /**
+     * AJAX: Discover product meta keys that may contain EAN/GTIN/ISBN values.
+     * Scans postmeta for product post types, returns grouped results:
+     * - known plugin meta keys (Yoast, GTIN for WC, etc.)
+     * - all custom meta keys found on products (excluding internal WC/WP keys)
+     */
+    public function ajax_get_product_meta_keys() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        global $wpdb;
+
+        // Known plugin meta keys for GTIN/EAN/ISBN
+        $known_keys = array(
+            // WooCommerce native (WC 9.2+)
+            '_global_unique_id'                  => 'WooCommerce (GTIN/UPC/EAN/ISBN)',
+            // Yoast SEO / WooCommerce SEO
+            '_yoast_wpseo_global_identifier_gtin8'  => 'Yoast SEO (GTIN-8)',
+            '_yoast_wpseo_global_identifier_gtin12' => 'Yoast SEO (GTIN-12/UPC)',
+            '_yoast_wpseo_global_identifier_gtin13' => 'Yoast SEO (GTIN-13/EAN)',
+            '_yoast_wpseo_global_identifier_gtin14' => 'Yoast SEO (GTIN-14)',
+            '_yoast_wpseo_global_identifier_isbn'   => 'Yoast SEO (ISBN)',
+            '_yoast_wpseo_global_identifier_mpn'    => 'Yoast SEO (MPN)',
+            // GTIN (EAN, UPC, ISBN) for WooCommerce plugin (by Jeremias Jebbink)
+            '_wpm_gtin_code'                     => 'Product GTIN for WooCommerce',
+            // EAN for WooCommerce plugin (by WPFactory)
+            '_alg_ean'                           => 'EAN for WooCommerce (WPFactory)',
+            // WooCommerce UPC, EAN, ISBN plugin
+            'hwp_product_gtin'                   => 'GTIN/UPC/EAN by Barn2',
+            // Product GTIN for WC
+            '_wc_gtin'                           => 'Product GTIN (WC)',
+            // Germanized for WooCommerce
+            '_ts_gtin'                           => 'Germanized (GTIN)',
+            '_ts_mpn'                            => 'Germanized (MPN)',
+        );
+
+        // Query DB for which known keys actually exist
+        $known_key_list = array_keys( $known_keys );
+        $placeholders   = implode( ',', array_fill( 0, count( $known_key_list ), '%s' ) );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $found_known = $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT pm.meta_key
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE p.post_type IN ('product', 'product_variation')
+             AND pm.meta_key IN ({$placeholders})
+             LIMIT 50",
+            ...$known_key_list
+        ) );
+
+        $detected = array();
+        foreach ( $found_known as $key ) {
+            $detected[] = array(
+                'key'   => $key,
+                'label' => isset( $known_keys[ $key ] ) ? $known_keys[ $key ] : $key,
+                'type'  => 'detected',
+            );
+        }
+
+        // Also query for custom meta keys that might contain identifiers
+        // Exclude internal WC/WP meta keys (start with _ but not known identifier keys)
+        $custom_keys = $wpdb->get_col(
+            "SELECT DISTINCT pm.meta_key
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE p.post_type IN ('product', 'product_variation')
+             AND pm.meta_key NOT LIKE '\_%'
+             AND pm.meta_key NOT IN ('total_sales')
+             ORDER BY pm.meta_key ASC
+             LIMIT 200"
+        );
+
+        $custom = array();
+        foreach ( $custom_keys as $key ) {
+            $custom[] = array(
+                'key'   => $key,
+                'label' => $key,
+                'type'  => 'custom',
+            );
+        }
+
+        // All known keys (even if not detected — for manual selection)
+        $all_known = array();
+        foreach ( $known_keys as $key => $label ) {
+            if ( ! in_array( $key, $found_known, true ) ) {
+                $all_known[] = array(
+                    'key'   => $key,
+                    'label' => $label . ' (' . __( 'not found', 'wp-houla' ) . ')',
+                    'type'  => 'known',
+                );
+            }
+        }
+
+        wp_send_json_success( array(
+            'detected' => $detected,
+            'custom'   => $custom,
+            'known'    => $all_known,
+        ) );
     }
 
     /**

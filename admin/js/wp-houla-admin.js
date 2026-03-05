@@ -127,6 +127,13 @@
             }
         });
 
+        // Add product identifier meta mapping (ean/isbn => meta_key)
+        $('.wphoula-id-meta-select').each(function () {
+            var idKey = $(this).data('id-key');
+            var metaKey = $(this).val();
+            data['identifier_meta_map[' + idKey + ']'] = metaKey || '';
+        });
+
         $.post(ajaxUrl, data, function (response) {
             $btn.prop('disabled', false);
             if (response.success) {
@@ -674,6 +681,7 @@
             checkShopStatus();
             loadCollections();
             loadSyncedProducts();
+            loadIdentifierMetaKeys();
         }
     });
 
@@ -684,6 +692,7 @@
             checkShopStatus();
             loadCollections();
             loadSyncedProducts();
+            loadIdentifierMetaKeys();
         }
 
         // Trigger price example on load if value is set
@@ -712,6 +721,78 @@
                     $('#wphoula-shop-status-banner').hide();
                 }
             }
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // Load product identifier meta keys (EAN / ISBN)
+    // -----------------------------------------------------------------
+
+    function loadIdentifierMetaKeys() {
+        $('.wphoula-id-meta-loading').show();
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_product_meta_keys',
+            nonce: nonce
+        }, function (response) {
+            $('.wphoula-id-meta-loading').hide();
+
+            if (!response.success || !response.data) return;
+
+            var data = response.data;
+
+            $('.wphoula-id-meta-select').each(function () {
+                var $select = $(this);
+                var idKey = $select.data('id-key'); // 'ean' or 'isbn'
+                var savedValue = $('#wphoula-id-meta-' + idKey + '-saved').val();
+
+                // Keep the first default option
+                $select.find('option:gt(0)').remove();
+
+                // Add detected keys first (from installed plugins)
+                if (data.detected && data.detected.length > 0) {
+                    var $group = $('<optgroup></optgroup>').attr('label', i18n.detectedPlugins || 'Detected plugins');
+                    for (var i = 0; i < data.detected.length; i++) {
+                        var d = data.detected[i];
+                        var $opt = $('<option></option>').val(d.key).text(d.label);
+                        if (d.key === savedValue) $opt.prop('selected', true);
+                        $group.append($opt);
+                    }
+                    $select.append($group);
+                }
+
+                // Add custom (non-underscore) meta keys
+                if (data.custom && data.custom.length > 0) {
+                    var $group2 = $('<optgroup></optgroup>').attr('label', i18n.customMetaKeys || 'Custom meta fields');
+                    for (var j = 0; j < data.custom.length; j++) {
+                        var c = data.custom[j];
+                        var $opt2 = $('<option></option>').val(c.key).text(c.label);
+                        if (c.key === savedValue) $opt2.prop('selected', true);
+                        $group2.append($opt2);
+                    }
+                    $select.append($group2);
+                }
+
+                // Add all known plugin keys (even if not installed)
+                if (data.known && data.known.length > 0) {
+                    var $group3 = $('<optgroup></optgroup>').attr('label', i18n.knownPlugins || 'Known plugins (not detected)');
+                    for (var k = 0; k < data.known.length; k++) {
+                        var kn = data.known[k];
+                        var $opt3 = $('<option></option>').val(kn.key).text(kn.label);
+                        if (kn.key === savedValue) $opt3.prop('selected', true);
+                        $group3.append($opt3);
+                    }
+                    $select.append($group3);
+                }
+
+                // If saved value not in any list, add it manually
+                if (savedValue && $select.val() !== savedValue) {
+                    var $manual = $('<option></option>').val(savedValue).text(savedValue).prop('selected', true);
+                    $select.prepend($manual);
+                }
+            });
+        }).fail(function () {
+            $('.wphoula-id-meta-loading').hide();
         });
     }
 

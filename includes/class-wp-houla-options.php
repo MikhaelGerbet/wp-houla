@@ -63,6 +63,11 @@ class Wp_Houla_Options {
             ),
             // Tracking sync
             'sync_tracking'      => true,
+            // Product identifiers meta mapping (ean/isbn => WC meta_key)
+            'identifier_meta_map' => array(
+                'ean'  => '',
+                'isbn' => '',
+            ),
         ) );
 
         $this->_options = wp_parse_args( get_option( WPHOULA_OPTIONS, array() ), $defaults );
