@@ -7,7 +7,7 @@
  * @package           Wp_Houla
  *
  * @wordpress-plugin
- * Plugin Name:       WP-Houla - Short Links, QR Codes & Social Commerce
+ * Plugin Name:       Houla - Short Links, QR Codes & Social Commerce
  * Plugin URI:        https://hou.la/
  * Description:       Connect WordPress to Hou.la for automatic short links, QR codes on every post, and optional WooCommerce product sync with your bio page for social selling via Stripe.
  * Version:           1.3.0

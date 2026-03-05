@@ -1,6 +1,7 @@
-=== WP-Houla - Short Links, QR Codes & Social Commerce ===
+=== Houla - Short Links, QR Codes, Link in Bio & Social Commerce ===
 Contributors: mikhaelgerbet
-Tags: short links, qr code, url shortener, woocommerce, social commerce
+Donate link: https://hou.la
+Tags: short links, qr code, url shortener, woocommerce, link in bio
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
@@ -10,59 +11,84 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 WC requires at least: 7.0
 WC tested up to: 9.0
 
-Automatic short links and QR codes for every post. Sync your WooCommerce products to your Hou.la bio page and sell from Instagram, TikTok, or X.
+Generate tracked short links and QR codes for every WordPress post. Build a link-in-bio page and sell your WooCommerce products directly from Instagram, TikTok, or X.
 
 == Description ==
 
-WP-Houla connects your WordPress site to [Hou.la](https://hou.la), the marketing platform built for short links, QR codes, and social commerce.
+Houla connects your WordPress site to [Hou.la](https://hou.la) and gives you four capabilities in a single plugin: **short links**, **QR codes**, a **link-in-bio page**, and **social commerce** through WooCommerce.
 
-Every post you publish gets a tracked short link and a downloadable QR code. If you run a WooCommerce store, your products sync to a bio page where customers can browse and buy through Stripe - orders flow back into WooCommerce automatically.
+Every published post, page, or product automatically gets a tracked short URL and a downloadable QR code. Click and scan statistics appear right inside the WordPress editor. If you run a WooCommerce store, your products sync to a customizable bio page where visitors can browse, add to cart, and pay via Stripe - without leaving their social feed. Orders are pushed back to WooCommerce in real time with full stock management.
 
-= Why WP-Houla? =
+No separate e-commerce setup required. No third-party checkout to configure. Connect your Hou.la account, and the plugin handles everything from link creation to order fulfillment.
 
-Other URL shortener plugins stop at link generation. WP-Houla gives you the full stack: links, QR codes, analytics, product sync, and a complete order pipeline between your bio page and WooCommerce. One plugin, zero configuration after the initial connect.
+= Short Links =
 
-= Short Links on Every Post =
+* A short URL is generated the moment a post, page, or custom post type is published
+* Replaces the native WordPress shortlink - themes and sharing tools use your Hou.la link automatically
+* One-click copy and QR code preview in the editor sidebar
+* Per-post click count and scan statistics accessible from the admin
+* `[wphoula]` shortcode to embed short links or QR code images anywhere in your content
+* Compatible with posts, pages, WooCommerce products, and any custom post type registered with `public => true`
 
-* Links are generated the moment a post, page, or custom post type is published
-* Replaces WordPress's native `get_shortlink()` so themes and sharing tools use your Hou.la link automatically
-* Copy button and QR code preview in the editor sidebar
-* Per-post click and scan statistics without leaving the admin
-* `[wphoula]` shortcode to embed short links or QR code images in your content
-* Works on posts, pages, products, and any custom post type with `public => true`
+= QR Codes =
+
+* A QR code is created alongside every short link - no extra step
+* Preview and download the QR code image directly from the post editor
+* Customizable colors based on your Hou.la template settings
+* Embed QR codes in your content with the `[wphoula qrcode=1]` shortcode
+* Ideal for print materials: flyers, business cards, packaging, event posters
+
+= Link in Bio =
+
+* Build a professional bio page at hou.la/your-name with all your links in one place
+* Showcase your WordPress blog posts, landing pages, and products on a single page
+* Fully customizable: avatar, colors, layout, link order
+* Integrated analytics: see which links your audience clicks the most
+* Works for content creators, influencers, freelancers, agencies, and online stores
+
+= Click Analytics and Statistics =
+
+* Track clicks, scans, and referrers per link
+* View statistics in the WordPress admin - no need to leave your dashboard
+* Dashboard widget with total click count and a list of your top-performing links
+* Short link column added to the Posts and Pages list for a quick overview
+* Identify your best-performing content and channels at a glance
 
 = Social Commerce with WooCommerce =
 
-Turn your social media bio into a storefront:
+Turn your bio page into a storefront and sell from social media without building a separate online shop:
 
-* **Real-time sync** - products are pushed to Hou.la when created, updated, or deleted
-* **Complete product data** - name, prices, sale prices, images, gallery, categories, tags, SKU, weight, dimensions, stock levels, variations, and attributes
-* **Batch sync** - push your entire catalog to Hou.la in one click
-* **Category filtering** - optionally limit sync to specific WooCommerce product categories
-* **Automatic order creation** - purchases made on a Hou.la bio page create WooCommerce orders with full billing, shipping, and line item data
-* **Stock management** - inventory is decremented when orders arrive and restocked on refunds
-* **Refund handling** - webhook-triggered refund processing with automatic WooCommerce status updates
+* **Real-time product sync** - products are pushed to your bio page when created, updated, or deleted in WooCommerce
+* **Complete catalog data** - name, prices, sale prices, images, gallery, categories, tags, SKU, weight, dimensions, stock, variations, and attributes
+* **One-click batch sync** - push your entire WooCommerce catalog to Hou.la
+* **Category filtering** - choose which product categories to display on your bio page
+* **Automatic order creation** - purchases made on the bio page generate WooCommerce orders with billing, shipping, and line items
+* **Stock management** - inventory is decremented on sale and restocked on refund
+* **Refund handling** - automated refund processing triggered by Hou.la webhooks
 
-= Enterprise-Grade Security =
+Payments are processed through Stripe on Hou.la. No payment gateway configuration on your WordPress site, no PCI scope, no credit card data stored locally.
 
-* **OAuth 2.0 + PKCE** - no client secrets stored on your server. Authentication follows the same standard used by Google, GitHub, and Stripe
-* **AES-256-CBC** - access tokens and refresh tokens are encrypted at rest using your WordPress salts
-* **HMAC-SHA256** - every incoming webhook is verified against a per-site shared secret
-* **State parameter** - CSRF protection on the OAuth flow
+= Who Is This For? =
+
+* **Bloggers and content creators** looking for a URL shortener with real analytics and a bio page to group all their links
+* **Small businesses** that want to sell products on social media without building or maintaining an online store
+* **WooCommerce store owners** who want to reach customers directly through Instagram, TikTok, X, or any platform with a single link
+* **Marketers** who need tracked short links and printable QR codes for campaigns, flyers, and packaging
+* **Agencies** managing link analytics and social storefronts across multiple client sites from one workspace
 
 = Setup in Under a Minute =
 
 1. Install and activate the plugin
-2. Navigate to **WooCommerce > Hou.la** and click **Connect to Hou.la**
-3. Authorize in the popup - you are redirected back automatically
-4. Done. Short links generate on publish, products sync when they change.
+2. Go to **WooCommerce > Hou.la** and click **Connect to Hou.la**
+3. Authorize in the popup
+4. Done. Short links are generated on publish. Products sync when they change.
 
-= Who Is This For? =
+= Security =
 
-* **Content creators** - share tracked short links on social media with per-link analytics
-* **WooCommerce stores** - list products on your Instagram, TikTok, or X bio page and collect orders without a separate checkout
-* **Marketers** - print QR codes on flyers, packaging, or posters that link to your WordPress content with scan tracking
-* **Agencies** - manage short links across multiple client sites from a single Hou.la workspace
+* **OAuth 2.0 + PKCE** - industry-standard authentication, no client secrets stored on your server
+* **AES-256-CBC** - access tokens and refresh tokens are encrypted at rest using your WordPress salts
+* **HMAC-SHA256** - every incoming webhook is verified against a per-site shared secret
+* **CSRF protection** - state parameter validation on the OAuth flow
 
 = Developer Friendly =
 
@@ -110,7 +136,7 @@ Relevant policies:
 = Automatic Installation =
 
 1. In your WordPress admin, go to **Plugins > Add New**
-2. Search for **WP-Houla**
+2. Search for **Houla**
 3. Click **Install Now**, then **Activate**
 
 = Manual Installation =
@@ -134,15 +160,23 @@ Short links are generated automatically for every published post from this point
 
 = Does the plugin work without WooCommerce? =
 
-Yes. Short links and QR codes work on all public post types regardless of WooCommerce. The commerce features (product sync, order reception) require WooCommerce 7.0+.
+Yes. Short links, QR codes, click statistics, and the link-in-bio page work on all public post types regardless of WooCommerce. The commerce features (product sync, order reception) require WooCommerce 7.0+.
 
 = Do I need a paid Hou.la account? =
 
 No. The free plan includes unlimited short links, QR codes, and bio pages. Commerce features are available on all plans. The difference between plans is the commission rate on sales: 8% on the free plan, 3% on Pro.
 
+= How is this different from Linktree or other link-in-bio tools? =
+
+Hou.la is integrated directly into WordPress. Your links and products are generated from your actual content - no manual copy-pasting. WooCommerce products sync automatically, and orders come back into your store. Other tools require you to manage links manually and have no connection to your catalog or order system.
+
+= Can I sell products without a WooCommerce store? =
+
+No. The social commerce feature requires WooCommerce because orders are created as WooCommerce orders. However, short links, QR codes, analytics, and the bio page work without WooCommerce.
+
 = How are payments handled? =
 
-All payment processing happens on Hou.la through Stripe Connect. No credit card data, no PCI scope, no payment gateway configuration on your WordPress site. Completed orders are sent to WooCommerce via a signed webhook.
+All payment processing happens on Hou.la through Stripe Connect. No credit card data flows through your WordPress site. Completed orders are sent to WooCommerce via a signed webhook.
 
 = What happens to my short links if I deactivate the plugin? =
 
@@ -152,17 +186,13 @@ Short links remain active on Hou.la. Only the local metadata in your WordPress d
 
 Yes. Open the post in the editor and click **Regenerate** in the Hou.la metabox. A new link and QR code are created. The previous link continues to work.
 
-= Are drafts and scheduled posts supported? =
-
-Drafts do not get short links. Links are generated when the post status becomes `publish`, `future`, or `private`.
-
 = Which post types get short links? =
 
 All post types registered with `public => true`: posts, pages, WooCommerce products, and any custom post type. Use the `wphoula_allowed_post_types` filter to include or exclude specific types.
 
-= Can I run batch sync more than once? =
+= Can I customize the QR code colors? =
 
-Yes. A 10-minute lock prevents concurrent syncs. Once the lock expires or the current sync finishes, you can run it again. Each batch sync creates or updates all published products.
+Yes. QR codes use the colors defined in your Hou.la template. Set your preferred foreground and background colors in the Hou.la dashboard and every generated QR code will match your brand.
 
 = Does the webhook work behind a CDN or reverse proxy? =
 
@@ -182,12 +212,12 @@ Open an issue on the [GitHub repository](https://github.com/MikhaelGerbet/wp-hou
 
 == Screenshots ==
 
-1. **Settings - Connection** - One-click OAuth 2.0 connection to your Hou.la workspace. Displays connected status, workspace name, and account email.
-2. **Settings - Sync** - Toggle automatic product sync, view synced product count and last sync date, launch a full batch synchronization.
-3. **Settings - Orders** - Order statistics, webhook URL for your Hou.la account, and last order timestamp.
-4. **Settings - Debug** - Enable debug logging, set custom API URL for development, view plugin version, PHP version, WooCommerce version, REST API base URL, and webhook secret status.
-5. **Post editor metabox** - Hou.la short link with copy button, QR code preview with download, and click/scan statistics for the current post.
-6. **Product editor metabox** - Sync status badge, last sync date, commerce statistics (views, clicks, sales, revenue), re-sync and unsync controls.
+1. **Settings - Connection** - One-click OAuth connection to your Hou.la workspace with connected status, workspace name, and account email.
+2. **Settings - Sync** - Product sync controls: enable automatic sync, view synced product count, last sync date, and launch batch synchronization.
+3. **Settings - Orders** - Order statistics, webhook URL for configuration, and last order timestamp.
+4. **Settings - Debug** - Debug logging toggle, API URL override for development, and system information.
+5. **Post editor metabox** - Short link with copy button, QR code preview with download, and click/scan statistics for the current post.
+6. **Product editor metabox** - Sync status, last sync date, commerce statistics (views, clicks, sales, revenue), and re-sync controls.
 7. **Shortcode output** - QR code image rendered in post content using the `[wphoula qrcode=1]` shortcode.
 
 == Changelog ==
@@ -262,6 +292,7 @@ Shortlink metabox now appears on WooCommerce products.
 Fix tabs and default post types selection.
 
 = 1.2.0 =
+Dashboard widget and short link column in post lists.
 
 = 1.0.0 =
 First stable release. Install the plugin, connect your Hou.la account, and every published post gets a short link and QR code automatically.
