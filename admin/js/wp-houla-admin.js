@@ -132,7 +132,7 @@
     });
 
     // =================================================================
-    // Batch sync
+    // Batch sync (paginated with progress bar)
     // =================================================================
 
     $(document).on('click', '#wphoula-batch-sync', function () {
@@ -142,29 +142,84 @@
         }
         var $btn = $(this);
         var $spinner = $('#wphoula-sync-status');
+        var $progress = $('#wphoula-sync-progress');
+        var $fill = $('#wphoula-progress-fill');
+        var $text = $('#wphoula-progress-text');
 
         $btn.prop('disabled', true);
-        $spinner.show().text(i18n.syncing);
+        $spinner.show().text(i18n.syncing || 'Counting products...');
 
+        // Step 1: count products
         $.post(ajaxUrl, {
-            action: 'wphoula_batch_sync',
+            action: 'wphoula_batch_sync_count',
             nonce: nonce
-        }, function (response) {
-            $btn.prop('disabled', false);
-            if (response.success) {
-                var data = response.data;
-                $spinner.text(
-                    data.synced + ' synced, ' + data.errors + ' errors'
-                );
-                setTimeout(function () {
-                    $spinner.hide();
-                }, 5000);
-            } else {
-                $spinner.text(i18n.syncError);
+        }, function (countResp) {
+            if (!countResp.success) {
+                $btn.prop('disabled', false);
+                $spinner.text(i18n.syncError || 'Error');
+                return;
             }
+
+            var total = countResp.data.total;
+            if (total === 0) {
+                $btn.prop('disabled', false);
+                $spinner.text('0 products');
+                setTimeout(function () { $spinner.hide(); }, 3000);
+                return;
+            }
+
+            // Show progress bar
+            $spinner.hide();
+            $progress.show();
+            $fill.css('width', '0%');
+            $text.text('0 / ' + total);
+
+            var page = 1;
+            var totalSynced = 0;
+            var totalErrors = 0;
+
+            // Step 2: sync page by page
+            function syncNextPage() {
+                $.post(ajaxUrl, {
+                    action: 'wphoula_batch_sync_page',
+                    nonce: nonce,
+                    page: page
+                }, function (resp) {
+                    if (!resp.success) {
+                        $btn.prop('disabled', false);
+                        $text.text(i18n.syncError || 'Error');
+                        return;
+                    }
+
+                    var d = resp.data;
+                    totalSynced += d.synced;
+                    totalErrors += d.errors;
+
+                    var pct = Math.min(100, Math.round((totalSynced + totalErrors) / total * 100));
+                    $fill.css('width', pct + '%');
+                    $text.text(totalSynced + ' / ' + total + (totalErrors > 0 ? ' (' + totalErrors + ' errors)' : ''));
+
+                    if (d.has_more) {
+                        page++;
+                        syncNextPage();
+                    } else {
+                        // Done
+                        $fill.css('width', '100%');
+                        $text.text(totalSynced + ' synced' + (totalErrors > 0 ? ', ' + totalErrors + ' errors' : '') + ' ✓');
+                        $btn.prop('disabled', false);
+                        setTimeout(function () { $progress.fadeOut(); }, 5000);
+                    }
+                }).fail(function () {
+                    $btn.prop('disabled', false);
+                    $text.text(i18n.syncError || 'Error');
+                });
+            }
+
+            syncNextPage();
+
         }).fail(function () {
             $btn.prop('disabled', false);
-            $spinner.text(i18n.syncError);
+            $spinner.text(i18n.syncError || 'Error');
         });
     });
 

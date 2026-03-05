@@ -233,6 +233,75 @@ class Wp_Houla_Orders {
     }
 
     // =====================================================================
+    // Order status update (from Hou.la webhook)
+    // =====================================================================
+
+    /**
+     * Concordance: Hou.la status → WooCommerce status.
+     */
+    private static $houla_to_wc_status = array(
+        'pending'    => 'on-hold',
+        'paid'       => 'processing',
+        'processing' => 'processing',
+        'shipped'    => 'completed',
+        'delivered'  => 'completed',
+        'cancelled'  => 'cancelled',
+        'refunded'   => 'refunded',
+    );
+
+    /**
+     * Handle an order.status_changed webhook.
+     *
+     * Expected $data structure:
+     * {
+     *   "houla_order_id": "ord_abc123",
+     *   "wc_status":      "completed",
+     *   "carrier":        "colissimo",
+     *   "tracking_number": "6A12345678"
+     * }
+     *
+     * @param array $data Parsed webhook payload.
+     * @return array|WP_Error
+     */
+    public function update_order_status( $data ) {
+        if ( empty( $data['houla_order_id'] ) || empty( $data['wc_status'] ) ) {
+            return new WP_Error( 'wphoula_invalid_status', 'Missing houla_order_id or wc_status.' );
+        }
+
+        $order_id = $this->find_order_by_houla_id( $data['houla_order_id'] );
+        if ( ! $order_id ) {
+            return new WP_Error( 'wphoula_order_not_found', 'Order not found for ' . $data['houla_order_id'] . '.' );
+        }
+
+        $order     = wc_get_order( $order_id );
+        $wc_status = sanitize_text_field( $data['wc_status'] );
+
+        // Set a flag to prevent infinite loop (this status change came from Hou.la,
+        // so the woocommerce_order_status_changed hook should NOT send it back)
+        $order->update_meta_data( '_houla_skip_sync', '1' );
+
+        $order->set_status( $wc_status, __( 'Status updated via Hou.la.', 'wp-houla' ) );
+
+        // Store carrier/tracking if provided
+        if ( ! empty( $data['carrier'] ) ) {
+            $order->update_meta_data( '_houla_carrier', sanitize_text_field( $data['carrier'] ) );
+        }
+        if ( ! empty( $data['tracking_number'] ) ) {
+            $order->update_meta_data( '_houla_tracking_number', sanitize_text_field( $data['tracking_number'] ) );
+        }
+
+        $order->save();
+
+        // Clear the skip flag after save (the hook has already fired at this point)
+        $order->delete_meta_data( '_houla_skip_sync' );
+        $order->save_meta_data();
+
+        $this->log( 'Order WC #' . $order_id . ' status changed to "' . $wc_status . '" (Hou.la ' . $data['houla_order_id'] . ').' );
+
+        return array( 'order_id' => $order_id );
+    }
+
+    // =====================================================================
     // Lookup
     // =====================================================================
 

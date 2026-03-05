@@ -115,6 +115,8 @@ class Wp_Houla {
             $metabox = new Wp_Houla_Metabox();
 
             $this->loader->add_action( 'wp_ajax_wphoula_batch_sync', $admin, 'ajax_batch_sync' );
+            $this->loader->add_action( 'wp_ajax_wphoula_batch_sync_page', $admin, 'ajax_batch_sync_page' );
+            $this->loader->add_action( 'wp_ajax_wphoula_batch_sync_count', $admin, 'ajax_batch_sync_count' );
             $this->loader->add_action( 'wp_ajax_wphoula_get_synced_products', $admin, 'ajax_get_synced_products' );
             $this->loader->add_action( 'wp_ajax_wphoula_get_collections', $admin, 'ajax_get_collections' );
             $this->loader->add_action( 'wp_ajax_wphoula_auto_map_collections', $admin, 'ajax_auto_map_collections' );
@@ -178,6 +180,9 @@ class Wp_Houla {
         // Stock changes
         $this->loader->add_action( 'woocommerce_product_set_stock', $sync, 'on_stock_changed', 10, 1 );
         $this->loader->add_action( 'woocommerce_variation_set_stock', $sync, 'on_stock_changed', 10, 1 );
+
+        // Order status changes (WC → Hou.la)
+        $this->loader->add_action( 'woocommerce_order_status_changed', $sync, 'on_order_status_changed', 10, 4 );
     }
 
     // =====================================================================

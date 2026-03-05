@@ -204,6 +204,40 @@ class Wp_Houla_Admin {
     }
 
     /**
+     * AJAX: Count products to sync (for progress bar).
+     */
+    public function ajax_batch_sync_count() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $sync  = new Wp_Houla_Sync();
+        $total = $sync->count_products_to_sync();
+
+        wp_send_json_success( array( 'total' => $total ) );
+    }
+
+    /**
+     * AJAX: Sync one page of products (for progress bar).
+     */
+    public function ajax_batch_sync_page() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $page = isset( $_POST['page'] ) ? absint( $_POST['page'] ) : 1;
+
+        $sync   = new Wp_Houla_Sync();
+        $result = $sync->batch_sync_page( $page );
+
+        wp_send_json_success( $result );
+    }
+
+    /**
      * AJAX: Save settings.
      */
     public function ajax_save_settings() {

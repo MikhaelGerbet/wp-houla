@@ -259,6 +259,14 @@ $last_order_at   = $options->get( 'last_order_at' );
                     <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
                 </p>
 
+                <!-- Progress bar (hidden by default) -->
+                <div id="wphoula-sync-progress" class="wphoula-progress" style="display:none;">
+                    <div class="wphoula-progress-bar">
+                        <div class="wphoula-progress-fill" id="wphoula-progress-fill"></div>
+                    </div>
+                    <p class="wphoula-progress-text" id="wphoula-progress-text"></p>
+                </div>
+
             <?php endif; ?>
         </div>
 

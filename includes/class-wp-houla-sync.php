@@ -201,6 +201,109 @@ class Wp_Houla_Sync {
     // =====================================================================
 
     /**
+     * Build the WC query args for batch sync (shared by all batch methods).
+     *
+     * @return array
+     */
+    private function build_batch_query_args() {
+        $query_args = array(
+            'status' => 'publish',
+            'return' => 'objects',
+        );
+
+        $sync_categories = $this->options->get( 'sync_categories' );
+        if ( ! empty( $sync_categories ) && is_array( $sync_categories ) ) {
+            $slugs = array();
+            foreach ( $sync_categories as $cat_id ) {
+                $term = get_term( absint( $cat_id ), 'product_cat' );
+                if ( $term && ! is_wp_error( $term ) ) {
+                    $slugs[] = $term->slug;
+                }
+            }
+            if ( ! empty( $slugs ) ) {
+                $query_args['category'] = $slugs;
+            }
+        }
+
+        return $query_args;
+    }
+
+    /**
+     * Count how many products will be synced.
+     *
+     * @return int
+     */
+    public function count_products_to_sync() {
+        $args = $this->build_batch_query_args();
+        $args['limit']  = -1;
+        $args['return'] = 'ids';
+        $ids = wc_get_products( $args );
+        return count( $ids );
+    }
+
+    /**
+     * Sync a single page of products.
+     *
+     * @param int $page Page number (1-based).
+     * @return array { synced, errors, page, has_more }
+     */
+    public function batch_sync_page( $page = 1 ) {
+        if ( ! $this->should_sync() ) {
+            return array( 'synced' => 0, 'errors' => 0, 'page' => $page, 'has_more' => false, 'message' => 'Not connected' );
+        }
+
+        // Register connection on first page only
+        if ( $page === 1 ) {
+            $this->register_connection();
+        }
+
+        $limit = 20;
+        $args  = $this->build_batch_query_args();
+        $args['limit'] = $limit;
+        $args['page']  = $page;
+
+        $products = wc_get_products( $args );
+
+        $synced = 0;
+        $errors = 0;
+
+        foreach ( $products as $product ) {
+            $product_id = $product->get_id();
+            $houla_id   = get_post_meta( $product_id, '_wphoula_product_id', true );
+            $data       = $this->format_product( $product );
+
+            if ( $houla_id ) {
+                $result = $this->api->patch( '/ecommerce/products/' . $houla_id, $data );
+            } else {
+                $result = $this->api->post( '/ecommerce/products', $data );
+            }
+
+            if ( is_wp_error( $result ) ) {
+                $errors++;
+                $this->log( 'Batch sync page error for product #' . $product_id . ': ' . $result->get_error_message() );
+                continue;
+            }
+
+            if ( ! $houla_id && isset( $result['id'] ) ) {
+                update_post_meta( $product_id, '_wphoula_product_id', $result['id'] );
+            }
+
+            update_post_meta( $product_id, '_wphoula_synced', 1 );
+            update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+            $synced++;
+        }
+
+        $has_more = count( $products ) === $limit;
+
+        // Update counters on last page
+        if ( ! $has_more ) {
+            $this->options->set( 'last_full_sync', current_time( 'mysql' ) );
+        }
+
+        return array( 'synced' => $synced, 'errors' => $errors, 'page' => $page, 'has_more' => $has_more );
+    }
+
+    /**
      * Full synchronization of all published WooCommerce products.
      * Called via WP-Cron or admin AJAX.
      *
@@ -480,6 +583,75 @@ class Wp_Houla_Sync {
             $this->log( 'Failed to register connection: ' . $result->get_error_message() );
         } else {
             $this->log( 'Ecommerce connection registered successfully.' );
+        }
+    }
+
+    // =====================================================================
+    // Order status sync (WC → Hou.la)
+    // =====================================================================
+
+    /**
+     * Concordance: WooCommerce status → Hou.la status.
+     */
+    private static $wc_to_houla_status = array(
+        'on-hold'    => 'pending',
+        'processing' => 'processing',
+        'completed'  => 'delivered',
+        'cancelled'  => 'cancelled',
+        'refunded'   => 'refunded',
+    );
+
+    /**
+     * Triggered when a WooCommerce order status changes.
+     *
+     * Sends the new status to the Hou.la API so it stays in sync.
+     * Only fires for orders that have a _houla_order_id meta.
+     * Skips sync if _houla_skip_sync flag is set (loop prevention).
+     *
+     * @param int      $order_id   WooCommerce order ID.
+     * @param string   $old_status Old status (without 'wc-' prefix).
+     * @param string   $new_status New status (without 'wc-' prefix).
+     * @param WC_Order $order      Order object.
+     */
+    public function on_order_status_changed( $order_id, $old_status, $new_status, $order ) {
+        if ( ! $this->auth->is_connected() ) {
+            return;
+        }
+
+        // Prevent infinite loop: skip if this change came from a Hou.la webhook
+        $skip = $order->get_meta( '_houla_skip_sync' );
+        if ( $skip === '1' ) {
+            $this->log( 'Order #' . $order_id . ' status change skipped (from Hou.la webhook).' );
+            return;
+        }
+
+        // Only sync orders that were created via Hou.la
+        $houla_order_id = $order->get_meta( '_houla_order_id' );
+        if ( empty( $houla_order_id ) ) {
+            return;
+        }
+
+        // Map WC status to Hou.la status
+        $houla_status = isset( self::$wc_to_houla_status[ $new_status ] )
+            ? self::$wc_to_houla_status[ $new_status ]
+            : null;
+
+        if ( ! $houla_status ) {
+            $this->log( 'Order #' . $order_id . ': no Hou.la mapping for WC status "' . $new_status . '".' );
+            return;
+        }
+
+        // Map Hou.la status to the WC status that the API will broadcast
+        // (the API endpoint expects a wc_status string)
+        $result = $this->api->patch(
+            '/ecommerce/orders/' . $houla_order_id . '/status',
+            array( 'wc_status' => $new_status )
+        );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Order #' . $order_id . ' status sync failed: ' . $result->get_error_message() );
+        } else {
+            $this->log( 'Order #' . $order_id . ' status synced to Hou.la: ' . $new_status . ' → ' . $houla_status . '.' );
         }
     }
 

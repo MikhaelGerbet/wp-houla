@@ -136,6 +136,10 @@ class Wp_Houla_Webhook {
                 $result = $this->orders->refund_order( $data );
                 break;
 
+            case 'order.status_changed':
+                $result = $this->orders->update_order_status( $data );
+                break;
+
             case 'product.updated':
                 $result = $this->handle_product_updated( $data );
                 break;
