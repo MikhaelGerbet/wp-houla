@@ -169,6 +169,17 @@ $last_order_at   = $options->get( 'last_order_at' );
         <div class="wphoula-card">
             <h2><?php esc_html_e( 'Product Sync', 'wp-houla' ); ?></h2>
 
+            <!-- Shop activation check (loaded via AJAX) -->
+            <div id="wphoula-shop-status-banner" class="wphoula-shop-status-banner" style="display:none;">
+                <span class="dashicons dashicons-warning" style="color:#d63638; margin-right:6px;"></span>
+                <div>
+                    <strong><?php esc_html_e( 'Shop not activated', 'wp-houla' ); ?></strong>
+                    <p style="margin:4px 0 0; color:#666;">
+                        <?php esc_html_e( 'Your Hou.la shop is not activated yet. Please connect Stripe on your Hou.la dashboard (Manager > Shop) before syncing products.', 'wp-houla' ); ?>
+                    </p>
+                </div>
+            </div>
+
             <?php if ( ! $is_connected ) : ?>
                 <p class="description"><?php esc_html_e( 'Connect your account first to configure sync options.', 'wp-houla' ); ?></p>
             <?php else : ?>
@@ -307,6 +318,12 @@ $last_order_at   = $options->get( 'last_order_at' );
                     </td>
                 </tr>
             </table>
+
+            <p>
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
         </div>
 
         <!-- ============================================================= -->
@@ -372,6 +389,12 @@ $last_order_at   = $options->get( 'last_order_at' );
             </p>
             <p class="description">
                 <?php esc_html_e( 'Auto-create will create a Hou.la collection for each WooCommerce category and map them automatically.', 'wp-houla' ); ?>
+            </p>
+
+            <p style="margin-top: 16px;">
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
             </p>
         </div>
 

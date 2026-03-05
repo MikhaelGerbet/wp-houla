@@ -81,6 +81,7 @@ class Wp_Houla_Admin {
                     'collectionsMapped'   => __( ' mapped.', 'wp-houla' ),
                     'error'               => __( 'Error', 'wp-houla' ),
                     'networkError'        => __( 'Network error', 'wp-houla' ),
+                    'shopNotActive'       => __( 'Your Hou.la shop is not activated. Please connect Stripe on Hou.la first.', 'wp-houla' ),
                 ),
             ) );
         }
@@ -402,6 +403,35 @@ class Wp_Houla_Admin {
             'mapping' => $js_mapping,
             'total'   => count( $mapping ),
             'created' => isset( $result['created'] ) ? $result['created'] : 0,
+        ) );
+    }
+
+    // =====================================================================
+    // Shop status check
+    // =====================================================================
+
+    /**
+     * AJAX: Check if the Hou.la shop is activated (Stripe Connect active).
+     */
+    public function ajax_get_shop_status() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! $this->auth->is_connected() ) {
+            wp_send_json_error( __( 'Not connected to Hou.la.', 'wp-houla' ) );
+        }
+
+        $api    = new Wp_Houla_Api();
+        $result = $api->get( '/ecommerce/status' );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        wp_send_json_success( array(
+            'shopActive'     => ! empty( $result['shopActive'] ),
+            'stripeStatus'   => isset( $result['stripeStatus'] ) ? $result['stripeStatus'] : 'unknown',
+            'chargesEnabled' => ! empty( $result['chargesEnabled'] ),
+            'payoutsEnabled' => ! empty( $result['payoutsEnabled'] ),
         ) );
     }
 

@@ -75,7 +75,7 @@
     // Save settings
     // =================================================================
 
-    $(document).on('click', '#wphoula-save-settings', function () {
+    $(document).on('click', '#wphoula-save-settings, .wphoula-save-settings-btn', function () {
         var $btn = $(this);
         $btn.prop('disabled', true);
 
@@ -136,6 +136,10 @@
     // =================================================================
 
     $(document).on('click', '#wphoula-batch-sync', function () {
+        if (shopActive === false) {
+            alert(i18n.shopNotActive || 'Your Hou.la shop is not activated. Please connect Stripe on Hou.la first.');
+            return;
+        }
         var $btn = $(this);
         var $spinner = $('#wphoula-sync-status');
 
@@ -570,10 +574,12 @@
     // =================================================================
 
     var collectionsLoaded = false;
+    var shopActive = null; // null = unknown, true = active, false = not active
 
     $(document).on('click', '.wphoula-tabs .nav-tab[data-tab="sync"]', function () {
         if (!collectionsLoaded) {
             collectionsLoaded = true;
+            checkShopStatus();
             loadCollections();
             loadSyncedProducts();
         }
@@ -583,6 +589,7 @@
     $(document).ready(function () {
         if ($('.wphoula-tabs .nav-tab[data-tab="sync"]').hasClass('nav-tab-active')) {
             collectionsLoaded = true;
+            checkShopStatus();
             loadCollections();
             loadSyncedProducts();
         }
@@ -592,6 +599,29 @@
             updatePriceExample();
         }
     });
+
+    // -----------------------------------------------------------------
+    // Check shop activation status
+    // -----------------------------------------------------------------
+
+    function checkShopStatus() {
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_shop_status',
+            nonce: nonce
+        }, function (response) {
+            if (response.success && response.data) {
+                shopActive = !!response.data.shopActive;
+                if (!shopActive) {
+                    $('#wphoula-shop-status-banner').show();
+                    // Disable sync buttons
+                    $('#wphoula-batch-sync').prop('disabled', true).attr('title', i18n.shopNotActive || 'Shop not activated on Hou.la');
+                    $('#wphoula-auto-map').prop('disabled', true).attr('title', i18n.shopNotActive || 'Shop not activated on Hou.la');
+                } else {
+                    $('#wphoula-shop-status-banner').hide();
+                }
+            }
+        });
+    }
 
     // -----------------------------------------------------------------
     // Load collections and populate dropdowns

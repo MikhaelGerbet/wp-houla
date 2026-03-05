@@ -118,6 +118,7 @@ class Wp_Houla {
             $this->loader->add_action( 'wp_ajax_wphoula_get_synced_products', $admin, 'ajax_get_synced_products' );
             $this->loader->add_action( 'wp_ajax_wphoula_get_collections', $admin, 'ajax_get_collections' );
             $this->loader->add_action( 'wp_ajax_wphoula_auto_map_collections', $admin, 'ajax_auto_map_collections' );
+            $this->loader->add_action( 'wp_ajax_wphoula_get_shop_status', $admin, 'ajax_get_shop_status' );
 
             // Metabox on WooCommerce products
             $this->loader->add_action( 'add_meta_boxes', $metabox, 'register_metabox' );
