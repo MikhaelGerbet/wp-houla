@@ -743,8 +743,17 @@
 
             for (var i = 0; i < products.length; i++) {
                 var p = products[i];
-                var statusClass = p.status === 'active' ? 'wphoula-status-active' : 'wphoula-status-draft';
-                var statusLabel = p.status === 'active' ? 'Active' : (p.status || 'Draft');
+                var statusClass = 'wphoula-status-draft';
+                var statusLabel = p.status || 'draft';
+                if (p.status === 'active') {
+                    statusClass = 'wphoula-status-active';
+                    statusLabel = 'Active';
+                } else if (p.status === 'draft') {
+                    statusLabel = 'Draft';
+                } else if (p.status === 'out_of_stock') {
+                    statusLabel = 'Rupture';
+                    statusClass = 'wphoula-status-oos';
+                }
                 var stockLabel = (p.stock !== undefined && p.stock !== null) ? p.stock : '-';
                 var wcPrice = p.wc_price ? p.wc_price : '-';
                 var houlaPrice = p.price ? p.price : '-';

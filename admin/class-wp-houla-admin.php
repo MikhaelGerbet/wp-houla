@@ -338,19 +338,32 @@ class Wp_Houla_Admin {
                     $wc_price = $wc_product->get_price();
                 }
 
+                $price_cents  = isset( $product['priceCents'] ) ? intval( $product['priceCents'] ) : 0;
+                $currency     = isset( $product['currency'] ) ? $product['currency'] : 'EUR';
+                $houla_price  = $price_cents > 0 ? number_format( $price_cents / 100, 2, '.', '' ) . ' ' . $currency : '';
+                $stock_qty    = isset( $product['stockQuantity'] ) ? $product['stockQuantity'] : null;
+                $wc_currency  = function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '';
+                $wc_formatted = ( $wc_price !== '' && $wc_price !== null ) ? $wc_price . ' ' . $wc_currency : '';
+                $last_synced  = isset( $product['lastSyncedAt'] ) ? $product['lastSyncedAt'] : null;
+
+                // Format last synced date
+                if ( $last_synced ) {
+                    $ts = strtotime( $last_synced );
+                    if ( $ts ) {
+                        $last_synced = wp_date( 'd/m/Y H:i', $ts );
+                    }
+                }
+
                 $products[] = array(
-                    'id'              => $product['id'] ?? '',
-                    'title'           => $product['title'] ?? '',
-                    'externalId'      => $ext_id,
-                    'priceCents'      => $product['priceCents'] ?? 0,
-                    'currency'        => $product['currency'] ?? 'EUR',
-                    'status'          => $product['status'] ?? 'draft',
-                    'stockQuantity'   => $product['stockQuantity'] ?? null,
-                    'trackStock'      => $product['trackStock'] ?? false,
-                    'lastSyncedAt'    => $product['lastSyncedAt'] ?? null,
-                    'imageUrl'        => $product['imageUrl'] ?? null,
-                    'wcPrice'         => $wc_price,
-                    'wcCurrency'      => function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '',
+                    'id'          => $product['id'] ?? '',
+                    'title'       => $product['title'] ?? '',
+                    'externalId'  => $ext_id,
+                    'wc_price'    => $wc_formatted,
+                    'price'       => $houla_price,
+                    'status'      => $product['status'] ?? 'draft',
+                    'stock'       => $stock_qty,
+                    'last_synced' => $last_synced,
+                    'imageUrl'    => $product['imageUrl'] ?? null,
                 );
             }
         }
