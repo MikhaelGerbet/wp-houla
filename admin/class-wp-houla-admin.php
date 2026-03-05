@@ -82,6 +82,8 @@ class Wp_Houla_Admin {
                     'error'               => __( 'Error', 'wp-houla' ),
                     'networkError'        => __( 'Network error', 'wp-houla' ),
                     'shopNotActive'       => __( 'Your Hou.la shop is not activated. Please connect Stripe on Hou.la first.', 'wp-houla' ),
+                    'confirmResetSync'    => __( 'This will clear all sync metadata. You will need to re-sync all products. Continue?', 'wp-houla' ),
+                    'resetSync'           => __( 'Reset Sync Data', 'wp-houla' ),
                 ),
             ) );
         }
@@ -497,6 +499,41 @@ class Wp_Houla_Admin {
             'stripeStatus'   => isset( $result['stripeStatus'] ) ? $result['stripeStatus'] : 'unknown',
             'chargesEnabled' => ! empty( $result['chargesEnabled'] ),
             'payoutsEnabled' => ! empty( $result['payoutsEnabled'] ),
+        ) );
+    }
+
+    /**
+     * AJAX: Reset all sync metadata.
+     * Clears _wphoula_product_id, _wphoula_synced, _wphoula_sync_at from all products
+     * so the next batch sync will re-create them cleanly on Hou.la.
+     */
+    public function ajax_reset_sync() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        global $wpdb;
+
+        $deleted = $wpdb->query(
+            "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_wphoula_product_id', '_wphoula_synced', '_wphoula_sync_at')"
+        );
+
+        // Reset counters
+        $this->options->set( 'products_synced', 0 );
+        $this->options->set( 'last_full_sync', '' );
+
+        // Delete the batch sync lock transient
+        delete_transient( 'wphoula_batch_sync_lock' );
+
+        wp_send_json_success( array(
+            'message' => sprintf(
+                /* translators: %d: number of meta entries deleted */
+                __( 'Sync data reset (%d entries cleared). You can now re-sync your products.', 'wp-houla' ),
+                $deleted
+            ),
+            'cleared' => $deleted,
         ) );
     }
 

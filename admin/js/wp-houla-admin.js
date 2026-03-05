@@ -142,6 +142,33 @@
     });
 
     // =================================================================
+    // Reset sync data
+    // =================================================================
+
+    $(document).on('click', '#wphoula-reset-sync', function () {
+        if (!confirm(i18n.confirmResetSync || 'This will clear all sync metadata. You will need to re-sync all products. Continue?')) {
+            return;
+        }
+        var $btn = $(this);
+        $btn.prop('disabled', true).text(i18n.loading || 'Loading...');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_reset_sync',
+            nonce: nonce
+        }, function (resp) {
+            if (resp.success) {
+                alert(resp.data.message);
+                location.reload();
+            } else {
+                alert(i18n.error || 'Error');
+                $btn.prop('disabled', false).text(i18n.resetSync || 'Reset Sync Data');
+            }
+        }).fail(function () {
+            alert(i18n.networkError || 'Network error');
+            $btn.prop('disabled', false).text(i18n.resetSync || 'Reset Sync Data');
+        });
+    });
+
     // Batch sync (paginated with progress bar)
     // =================================================================
 

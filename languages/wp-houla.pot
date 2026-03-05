@@ -649,5 +649,17 @@ msgid "Network error"
 msgstr ""
 
 #: admin/class-wp-houla-admin.php
+msgid "This will clear all sync metadata. You will need to re-sync all products. Continue?"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Reset Sync Data"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Sync data reset (%d entries cleared). You can now re-sync your products."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
 msgid "Not connected to Hou.la. Please reconnect in the Connection tab."
 msgstr ""
