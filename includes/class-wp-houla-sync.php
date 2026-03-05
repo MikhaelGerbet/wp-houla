@@ -604,7 +604,7 @@ class Wp_Houla_Sync {
 
     /**
      * Build the WC → Hou.la status mapping from the saved concordance table.
-     * The concordance is stored as houla_status => wc-slug, so we invert it.
+     * The concordance is now stored as wc-slug => houla_status, so we just strip the prefix.
      *
      * @return array WC status (without wc- prefix) => Hou.la status.
      */
@@ -614,15 +614,14 @@ class Wp_Houla_Sync {
             return self::$default_wc_to_houla;
         }
 
-        // Invert: houla_status => 'wc-xxx' becomes 'xxx' => houla_status
-        $inverted = array();
-        foreach ( $saved_map as $houla_status => $wc_slug ) {
-            // Remove 'wc-' prefix if present
+        // Saved format: 'wc-xxx' => houla_status, convert to 'xxx' => houla_status
+        $result = array();
+        foreach ( $saved_map as $wc_slug => $houla_status ) {
             $wc_key = preg_replace( '/^wc-/', '', $wc_slug );
-            $inverted[ $wc_key ] = $houla_status;
+            $result[ $wc_key ] = $houla_status;
         }
 
-        return $inverted;
+        return $result;
     }
 
     /**

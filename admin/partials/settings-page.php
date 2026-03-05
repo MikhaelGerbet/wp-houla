@@ -496,10 +496,11 @@ $last_order_at   = $options->get( 'last_order_at' );
         <div class="wphoula-card" style="margin-top: 20px;">
             <h2><?php esc_html_e( 'Status Concordance', 'wp-houla' ); ?></h2>
             <p class="description" style="margin-bottom: 12px;">
-                <?php esc_html_e( 'Define how WooCommerce order statuses map to Hou.la statuses. This mapping is used in both directions.', 'wp-houla' ); ?>
+                <?php esc_html_e( 'Define how each WooCommerce order status maps to a Hou.la status. This mapping is used in both directions (WooCommerce → Hou.la and Hou.la → WooCommerce).', 'wp-houla' ); ?>
             </p>
 
             <?php
+            // Hou.la statuses available as dropdown options
             $houla_statuses = array(
                 'pending'    => __( 'Pending', 'wp-houla' ),
                 'paid'       => __( 'Paid', 'wp-houla' ),
@@ -513,18 +514,16 @@ $last_order_at   = $options->get( 'last_order_at' );
             // Get all registered WooCommerce statuses
             $wc_statuses = function_exists( 'wc_get_order_statuses' ) ? wc_get_order_statuses() : array();
 
-            // Current saved mapping (houla_status => wc_status_slug)
+            // Current saved mapping (wc_slug => houla_status)
             $status_map = $options->get( 'order_status_map' );
             if ( ! is_array( $status_map ) || empty( $status_map ) ) {
                 // Default mapping
                 $status_map = array(
-                    'pending'    => 'wc-on-hold',
-                    'paid'       => 'wc-processing',
-                    'processing' => 'wc-processing',
-                    'shipped'    => 'wc-completed',
-                    'delivered'  => 'wc-completed',
-                    'cancelled'  => 'wc-cancelled',
-                    'refunded'   => 'wc-refunded',
+                    'wc-on-hold'    => 'pending',
+                    'wc-processing' => 'processing',
+                    'wc-completed'  => 'delivered',
+                    'wc-cancelled'  => 'cancelled',
+                    'wc-refunded'   => 'refunded',
                 );
             }
             ?>
@@ -532,27 +531,26 @@ $last_order_at   = $options->get( 'last_order_at' );
             <table class="wphoula-concordance-table widefat">
                 <thead>
                     <tr>
-                        <th style="width: 35%;"><?php esc_html_e( 'Hou.la Status', 'wp-houla' ); ?></th>
+                        <th style="width: 45%;"><?php esc_html_e( 'WooCommerce Status', 'wp-houla' ); ?></th>
                         <th style="width: 10%; text-align:center;">→</th>
-                        <th style="width: 55%;"><?php esc_html_e( 'WooCommerce Status', 'wp-houla' ); ?></th>
+                        <th style="width: 45%;"><?php esc_html_e( 'Hou.la Status', 'wp-houla' ); ?></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ( $houla_statuses as $houla_key => $houla_label ) : ?>
+                    <?php foreach ( $wc_statuses as $wc_slug => $wc_label ) : ?>
                     <tr>
                         <td>
-                            <span class="wphoula-status-badge wphoula-status-badge--<?php echo esc_attr( $houla_key ); ?>">
-                                <?php echo esc_html( $houla_label ); ?>
-                            </span>
+                            <strong><?php echo esc_html( $wc_label ); ?></strong>
+                            <code style="font-size: 11px; color: #999; margin-left: 6px;"><?php echo esc_html( $wc_slug ); ?></code>
                         </td>
-                        <td style="text-align:center; font-size: 18px; color: #999;">↔</td>
+                        <td style="text-align:center; font-size: 18px; color: #999;">→</td>
                         <td>
-                            <select class="wphoula-status-map" data-houla-status="<?php echo esc_attr( $houla_key ); ?>">
+                            <select class="wphoula-status-map" data-wc-status="<?php echo esc_attr( $wc_slug ); ?>">
                                 <option value=""><?php esc_html_e( '— Not mapped —', 'wp-houla' ); ?></option>
-                                <?php foreach ( $wc_statuses as $wc_slug => $wc_label ) : ?>
-                                <option value="<?php echo esc_attr( $wc_slug ); ?>"
-                                    <?php selected( isset( $status_map[ $houla_key ] ) ? $status_map[ $houla_key ] : '', $wc_slug ); ?>>
-                                    <?php echo esc_html( $wc_label ); ?>
+                                <?php foreach ( $houla_statuses as $houla_key => $houla_label ) : ?>
+                                <option value="<?php echo esc_attr( $houla_key ); ?>"
+                                    <?php selected( isset( $status_map[ $wc_slug ] ) ? $status_map[ $wc_slug ] : '', $houla_key ); ?>>
+                                    <?php echo esc_html( $houla_label ); ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -590,9 +588,9 @@ $last_order_at   = $options->get( 'last_order_at' );
                     <th><?php esc_html_e( 'Supported plugins', 'wp-houla' ); ?></th>
                     <td>
                         <ul style="margin: 0; list-style: disc inside;">
-                            <li>Advanced Shipment Tracking (AST)</li>
-                            <li>WooCommerce Shipment Tracking</li>
-                            <li>YITH WooCommerce Order Tracking</li>
+                            <li><?php esc_html_e( 'Advanced Shipment Tracking (AST)', 'wp-houla' ); ?></li>
+                            <li><?php esc_html_e( 'WooCommerce Shipment Tracking', 'wp-houla' ); ?></li>
+                            <li><?php esc_html_e( 'YITH WooCommerce Order Tracking', 'wp-houla' ); ?></li>
                             <li><?php esc_html_e( 'Or any plugin storing tracking in order meta', 'wp-houla' ); ?></li>
                         </ul>
                         <p class="description" style="margin-top: 8px;">

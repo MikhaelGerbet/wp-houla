@@ -391,3 +391,263 @@ msgstr ""
 #: includes/class-wp-houla-orders.php
 msgid "Refunded via Hou.la."
 msgstr ""
+
+# =====================================================================
+# Short Links & QR Code tab
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Short Links & QR Code"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Shortlink Settings"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Configure which content types get automatic Hou.la short links and QR codes."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Post types"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Short links and QR codes will be generated for selected post types."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Connect your Hou.la account to generate short links and QR codes for your posts."
+msgstr ""
+
+# =====================================================================
+# Synced Products
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Synced Products"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Products currently synchronized on Hou.la from this WooCommerce store."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Loading synced products..."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Product"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "WC Price"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Price"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Stock"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Last synced"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "No products synced yet. Click \"Sync All Products Now\" to start."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Shop not activated"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Your Hou.la shop is not activated yet. Please connect Stripe on your Hou.la dashboard (Manager > Shop) before syncing products."
+msgstr ""
+
+# =====================================================================
+# Status Concordance
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Status Concordance"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Define how each WooCommerce order status maps to a Hou.la status. This mapping is used in both directions (WooCommerce → Hou.la and Hou.la → WooCommerce)."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Status"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "WooCommerce Status"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Pending"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Paid"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Processing"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Shipped"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Delivered"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Cancelled"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Refunded"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "— Not mapped —"
+msgstr ""
+
+# =====================================================================
+# Tracking Sync
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Tracking Sync"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "When a tracking number is added to a WooCommerce order, it will be automatically sent to Hou.la so buyers can track their shipment."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Auto-sync tracking"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Automatically push tracking numbers to Hou.la when added in WooCommerce"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Supported plugins"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Advanced Shipment Tracking (AST)"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "WooCommerce Shipment Tracking"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "YITH WooCommerce Order Tracking"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Or any plugin storing tracking in order meta"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Tracking links are generated automatically for major carriers (Colissimo, DPD, GLS, Chronopost, UPS, FedEx, DHL, etc.)."
+msgstr ""
+
+# =====================================================================
+# Orders tab extras
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Orders placed through your Hou.la bio page appear in WooCommerce > Orders with the payment method \"Hou.la Pay (Stripe)\"."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "API URL: %s"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "To disable: remove WPHOULA_DEV_MODE from wp-config.php and clear api_url."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Custom API URL for development. Leave empty for production (https://hou.la)."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "OAuth + all API calls will use this URL. Example: https://xxx.ngrok-free.dev"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Your Hou.la shop is not activated. Please connect Stripe on Hou.la first."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Collection"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "- Not mapped -"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Auto-create collections from categories"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Auto-create will create a Hou.la collection for each WooCommerce category and map them automatically."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "products"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Category filter"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "No WooCommerce categories found."
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Select which categories to sync. Leave all unchecked to sync all products."
+msgstr ""
+
+# =====================================================================
+# JS i18n extras
+# =====================================================================
+
+#: admin/class-wp-houla-admin.php
+msgid "Creating collections..."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid " collections created, "
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid " mapped."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Error"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Network error"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Not connected to Hou.la. Please reconnect in the Connection tab."
+msgstr ""

@@ -252,6 +252,7 @@ class Wp_Houla_Orders {
 
     /**
      * Get the Hou.la → WC status mapping from the saved concordance table.
+     * The concordance is stored as wc-slug => houla_status, so we invert it.
      *
      * @return array Hou.la status => WC status (without wc- prefix).
      */
@@ -261,13 +262,15 @@ class Wp_Houla_Orders {
             return self::$default_houla_to_wc;
         }
 
-        // saved_map is houla_status => 'wc-xxx', convert to houla_status => 'xxx'
-        $result = array();
-        foreach ( $saved_map as $houla_status => $wc_slug ) {
-            $result[ $houla_status ] = preg_replace( '/^wc-/', '', $wc_slug );
+        // Invert: 'wc-xxx' => houla_status becomes houla_status => 'xxx'
+        $inverted = array();
+        foreach ( $saved_map as $wc_slug => $houla_status ) {
+            $wc_key = preg_replace( '/^wc-/', '', $wc_slug );
+            // If multiple WC statuses map to the same Hou.la status, keep the last one
+            $inverted[ $houla_status ] = $wc_key;
         }
 
-        return $result;
+        return $inverted;
     }
 
     /**

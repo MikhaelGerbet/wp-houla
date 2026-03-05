@@ -118,12 +118,12 @@
             data['category_collection_map[' + catId + ']'] = catCollectionMap[catId];
         }
 
-        // Add order status concordance map
+        // Add order status concordance map (wc_slug => houla_status)
         $('.wphoula-status-map').each(function () {
-            var houlaStatus = $(this).data('houla-status');
-            var wcSlug = $(this).val();
-            if (houlaStatus && wcSlug) {
-                data['order_status_map[' + houlaStatus + ']'] = wcSlug;
+            var wcSlug = $(this).data('wc-status');
+            var houlaStatus = $(this).val();
+            if (wcSlug && houlaStatus) {
+                data['order_status_map[' + wcSlug + ']'] = houlaStatus;
             }
         });
 

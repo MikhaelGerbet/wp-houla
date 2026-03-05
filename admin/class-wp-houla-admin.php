@@ -295,15 +295,15 @@ class Wp_Houla_Admin {
             }
         }
 
-        // Order status concordance map
+        // Order status concordance map (wc_slug => houla_status)
         $order_status_map = array();
         if ( isset( $_POST['order_status_map'] ) && is_array( $_POST['order_status_map'] ) ) {
             $valid_houla = array( 'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded' );
-            foreach ( $_POST['order_status_map'] as $houla_status => $wc_slug ) {
-                $houla_status = sanitize_key( $houla_status );
+            foreach ( $_POST['order_status_map'] as $wc_slug => $houla_status ) {
                 $wc_slug      = sanitize_text_field( $wc_slug );
+                $houla_status = sanitize_key( $houla_status );
                 if ( in_array( $houla_status, $valid_houla, true ) && ! empty( $wc_slug ) ) {
-                    $order_status_map[ $houla_status ] = $wc_slug;
+                    $order_status_map[ $wc_slug ] = $houla_status;
                 }
             }
         }

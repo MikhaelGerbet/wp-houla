@@ -53,15 +53,13 @@ class Wp_Houla_Options {
             'category_collection_map' => array(),  // cat_term_id => collection_id
             // Post type filtering (default: post, page, product)
             'allowed_post_types' => array( 'post', 'page', 'product' ),
-            // Order status concordance (houla_status => wc-slug)
+            // Order status concordance (wc-slug => houla_status)
             'order_status_map'   => array(
-                'pending'    => 'wc-on-hold',
-                'paid'       => 'wc-processing',
-                'processing' => 'wc-processing',
-                'shipped'    => 'wc-completed',
-                'delivered'  => 'wc-completed',
-                'cancelled'  => 'wc-cancelled',
-                'refunded'   => 'wc-refunded',
+                'wc-on-hold'    => 'pending',
+                'wc-processing' => 'processing',
+                'wc-completed'  => 'delivered',
+                'wc-cancelled'  => 'cancelled',
+                'wc-refunded'   => 'refunded',
             ),
             // Tracking sync
             'sync_tracking'      => true,
