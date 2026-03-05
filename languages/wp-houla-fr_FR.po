@@ -213,7 +213,11 @@ msgstr "Jamais"
 
 #: admin/partials/settings-page.php
 msgid "Sync All Products Now"
-msgstr "Synchroniser tous les produits"
+msgstr "Synchroniser les produits"
+
+#: admin/partials/settings-page.php
+msgid "Sync Products"
+msgstr "Synchroniser les produits"
 
 #: admin/partials/settings-page.php
 msgid "Orders via Hou.la"
@@ -394,3 +398,200 @@ msgstr "Commande recue via Hou.la Pay."
 #: includes/class-wp-houla-orders.php
 msgid "Refunded via Hou.la."
 msgstr "Rembourse via Hou.la."
+
+# =====================================================================
+# Price Adjustment (settings-page.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Price Adjustment"
+msgstr "Ajustement des prix"
+
+#: admin/partials/settings-page.php
+msgid "Apply a price markup or discount when syncing to Hou.la. Useful to set different prices on your bio page."
+msgstr "Appliquer une majoration ou remise de prix lors de la synchronisation vers Hou.la. Utile pour definir des prix differents sur votre page bio."
+
+#: admin/partials/settings-page.php
+msgid "Adjustment type"
+msgstr "Type d'ajustement"
+
+#: admin/partials/settings-page.php
+msgid "No adjustment (sync original prices)"
+msgstr "Aucun ajustement (synchroniser les prix d'origine)"
+
+#: admin/partials/settings-page.php
+msgid "Markup by percentage (+%)"
+msgstr "Majoration en pourcentage (+%)"
+
+#: admin/partials/settings-page.php
+msgid "Discount by percentage (-%)"
+msgstr "Remise en pourcentage (-%)"
+
+#: admin/partials/settings-page.php
+msgid "Markup by fixed amount (+)"
+msgstr "Majoration par montant fixe (+)"
+
+#: admin/partials/settings-page.php
+msgid "Discount by fixed amount (-)"
+msgstr "Remise par montant fixe (-)"
+
+#: admin/partials/settings-page.php
+msgid "Value"
+msgstr "Valeur"
+
+# =====================================================================
+# Category - Collection Mapping (settings-page.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Category - Collection Mapping"
+msgstr "Correspondance categories - collections"
+
+#: admin/partials/settings-page.php
+msgid "Map your WooCommerce categories to Hou.la collections. Products will be automatically placed in the matching collection during sync."
+msgstr "Associez vos categories WooCommerce aux collections Hou.la. Les produits seront automatiquement places dans la collection correspondante lors de la synchronisation."
+
+#: admin/partials/settings-page.php
+msgid "WooCommerce Category"
+msgstr "Categorie WooCommerce"
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Collection"
+msgstr "Collection Hou.la"
+
+#: admin/partials/settings-page.php
+msgid "- Not mapped -"
+msgstr "- Non associe -"
+
+#: admin/partials/settings-page.php
+msgid "products"
+msgstr "produits"
+
+#: admin/partials/settings-page.php
+msgid "Auto-create collections from categories"
+msgstr "Creer automatiquement les collections depuis les categories"
+
+#: admin/partials/settings-page.php
+msgid "Auto-create will create a Hou.la collection for each WooCommerce category and map them automatically."
+msgstr "La creation automatique creera une collection Hou.la pour chaque categorie WooCommerce et les associera automatiquement."
+
+# =====================================================================
+# Synced Products (settings-page.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Synced Products"
+msgstr "Produits synchronises"
+
+#: admin/partials/settings-page.php
+msgid "Products currently synchronized on Hou.la from this WooCommerce store."
+msgstr "Produits actuellement synchronises sur Hou.la depuis cette boutique WooCommerce."
+
+#: admin/partials/settings-page.php
+msgid "Loading synced products..."
+msgstr "Chargement des produits synchronises..."
+
+#: admin/partials/settings-page.php
+msgid "Product"
+msgstr "Produit"
+
+#: admin/partials/settings-page.php
+msgid "WC Price"
+msgstr "Prix WC"
+
+#: admin/partials/settings-page.php
+msgid "Hou.la Price"
+msgstr "Prix Hou.la"
+
+#: admin/partials/settings-page.php
+msgid "Stock"
+msgstr "Stock"
+
+#: admin/partials/settings-page.php
+msgid "Last synced"
+msgstr "Derniere synchro"
+
+#: admin/partials/settings-page.php
+msgid "No products synced yet. Click \"Sync All Products Now\" to start."
+msgstr "Aucun produit synchronise. Cliquez sur \"Synchroniser les produits\" pour commencer."
+
+# =====================================================================
+# Debug tab extras (settings-page.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "API URL"
+msgstr "URL de l'API"
+
+#: admin/partials/settings-page.php
+msgid "Custom API URL for development. Leave empty for production (https://hou.la)."
+msgstr "URL API personnalisee pour le developpement. Laisser vide pour la production (https://hou.la)."
+
+#. translators: %s: URL
+#: admin/partials/settings-page.php
+msgid "Current: %s"
+msgstr "Actuelle : %s"
+
+#: admin/partials/settings-page.php
+msgid "Dev mode tips: use an ngrok URL, local IP (e.g. http://192.168.1.100:53001), or http://localhost:53001 if WP runs locally too."
+msgstr "Astuces dev : utilisez une URL ngrok, une IP locale (ex : http://192.168.1.100:53001), ou http://localhost:53001 si WP tourne aussi en local."
+
+# =====================================================================
+# Connection tab extras (settings-page.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Shortlink Settings"
+msgstr "Parametres des liens courts"
+
+#: admin/partials/settings-page.php
+msgid "Post types"
+msgstr "Types de contenu"
+
+#: admin/partials/settings-page.php
+msgid "Short links and QR codes will be generated for selected post types."
+msgstr "Les liens courts et QR codes seront generes pour les types de contenu selectionnes."
+
+#: admin/partials/settings-page.php
+msgid "Connect your Hou.la account to generate short links and QR codes for your posts."
+msgstr "Connectez votre compte Hou.la pour generer des liens courts et QR codes pour vos articles."
+
+#: admin/partials/settings-page.php
+msgid "Category filter"
+msgstr "Filtre par categorie"
+
+#: admin/partials/settings-page.php
+msgid "No WooCommerce categories found."
+msgstr "Aucune categorie WooCommerce trouvee."
+
+#: admin/partials/settings-page.php
+msgid "Select which categories to sync. Leave all unchecked to sync all products."
+msgstr "Selectionnez les categories a synchroniser. Laissez tout decoche pour synchroniser tous les produits."
+
+# =====================================================================
+# JS i18n strings (class-wp-houla-admin.php)
+# =====================================================================
+
+#: admin/class-wp-houla-admin.php
+msgid "Creating collections..."
+msgstr "Creation des collections..."
+
+#: admin/class-wp-houla-admin.php
+msgid " collections created, "
+msgstr " collections creees, "
+
+#: admin/class-wp-houla-admin.php
+msgid " mapped."
+msgstr " associees."
+
+#: admin/class-wp-houla-admin.php
+msgid "Error"
+msgstr "Erreur"
+
+#: admin/class-wp-houla-admin.php
+msgid "Network error"
+msgstr "Erreur reseau"
+
+#: admin/class-wp-houla-admin.php
+msgid "Not connected to Hou.la. Please reconnect in the Connection tab."
+msgstr "Non connecte a Hou.la. Veuillez vous reconnecter dans l'onglet Connexion."

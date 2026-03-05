@@ -702,7 +702,7 @@
         var $status = $('#wphoula-automap-status');
 
         $btn.prop('disabled', true);
-        $status.show().text('Creating collections...').css('color', '#666');
+        $status.show().text(i18n.creatingCollections || 'Creating collections...').css('color', '#666');
 
         $.post(ajaxUrl, {
             action: 'wphoula_auto_map_collections',
@@ -712,7 +712,7 @@
 
             if (response.success && response.data) {
                 var d = response.data;
-                $status.text(d.created + ' collections created, ' + d.total + ' mapped.').css('color', '#46b450');
+                $status.text((d.created || 0) + (i18n.collectionsCreated || ' collections created, ') + (d.total || 0) + (i18n.collectionsMapped || ' mapped.')).css('color', '#46b450');
 
                 // Update all dropdowns with the new mapping
                 if (d.mapping) {

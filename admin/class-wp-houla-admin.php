@@ -76,6 +76,11 @@ class Wp_Houla_Admin {
                     'disconnect'  => __( 'Disconnect', 'wp-houla' ),
                     'disconnecting' => __( 'Disconnecting...', 'wp-houla' ),
                     'saveSettings'  => __( 'Save Settings', 'wp-houla' ),
+                    'creatingCollections' => __( 'Creating collections...', 'wp-houla' ),
+                    'collectionsCreated'  => __( ' collections created, ', 'wp-houla' ),
+                    'collectionsMapped'   => __( ' mapped.', 'wp-houla' ),
+                    'error'               => __( 'Error', 'wp-houla' ),
+                    'networkError'        => __( 'Network error', 'wp-houla' ),
                 ),
             ) );
         }
@@ -348,6 +353,10 @@ class Wp_Houla_Admin {
             wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
         }
 
+        if ( ! $this->auth->is_connected() ) {
+            wp_send_json_error( __( 'Not connected to Hou.la. Please reconnect in the Connection tab.', 'wp-houla' ) );
+        }
+
         // Get all WC product categories
         $product_cats = get_terms( array(
             'taxonomy'   => 'product_cat',
@@ -381,13 +390,19 @@ class Wp_Houla_Admin {
         // Save the mapping to options
         $mapping = isset( $result['mapping'] ) ? $result['mapping'] : array();
         $cat_collection_map = array();
+        $js_mapping         = array();
         foreach ( $mapping as $m ) {
             $cat_collection_map[ intval( $m['external_id'] ) ] = $m['collection_id'];
+            $js_mapping[ $m['external_id'] ] = $m['collection_id'];
         }
 
         $this->options->set( 'category_collection_map', $cat_collection_map );
 
-        wp_send_json_success( $result );
+        wp_send_json_success( array(
+            'mapping' => $js_mapping,
+            'total'   => count( $mapping ),
+            'created' => isset( $result['created'] ) ? $result['created'] : 0,
+        ) );
     }
 
     // =====================================================================

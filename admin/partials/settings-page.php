@@ -227,7 +227,7 @@ $last_order_at   = $options->get( 'last_order_at' );
                     </button>
 
                     <button type="button" class="button button-secondary" id="wphoula-batch-sync">
-                        <?php esc_html_e( 'Sync All Products Now', 'wp-houla' ); ?>
+                        <?php esc_html_e( 'Sync Products', 'wp-houla' ); ?>
                     </button>
                     <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
                 </p>

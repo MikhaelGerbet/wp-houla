@@ -26,6 +26,8 @@ class Wp_Houla_Options {
             'access_token'       => '',
             'refresh_token'      => '',
             'token_expires_at'   => 0,
+            // API Key (persistent auth — survives OAuth token expiry)
+            'api_key'            => '',  // Encrypted houla_sk_... key
             // Connected workspace info
             'workspace_id'       => '',
             'workspace_name'     => '',

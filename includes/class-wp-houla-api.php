@@ -3,8 +3,9 @@
  * HTTP wrapper for the Hou.la API.
  *
  * All requests go through this class, which handles:
- * - Bearer token injection
- * - Automatic token refresh on 401
+ * - API key authentication (primary, persistent)
+ * - Bearer token fallback (for legacy/migration)
+ * - Automatic API key revocation detection
  * - JSON serialization/deserialization
  * - Error logging
  *
@@ -77,6 +78,35 @@ class Wp_Houla_Api {
     // =====================================================================
 
     /**
+     * Resolve the authentication headers.
+     *
+     * Priority:
+     * 1. API key (X-Api-Key header) -- persistent, survives token expiry
+     * 2. OAuth access token (Bearer header) -- short-lived, needs refresh
+     *
+     * @return array|false  Auth headers array, or false if not authenticated.
+     */
+    private function resolve_auth_headers() {
+        // 1. Try API key first (persistent)
+        $api_key = $this->auth->get_api_key();
+        if ( $api_key ) {
+            return array(
+                'X-Api-Key' => $api_key,
+            );
+        }
+
+        // 2. Fallback to OAuth Bearer token
+        $token = $this->auth->get_access_token();
+        if ( $token ) {
+            return array(
+                'Authorization' => 'Bearer ' . $token,
+            );
+        }
+
+        return false;
+    }
+
+    /**
      * Execute an HTTP request to the Hou.la API.
      *
      * @param string $method   HTTP method (GET, POST, PATCH, DELETE).
@@ -87,9 +117,9 @@ class Wp_Houla_Api {
      * @return array|WP_Error
      */
     private function request( $method, $endpoint, array $body = array(), array $query = array(), $attempt = 0 ) {
-        $token = $this->auth->get_access_token();
+        $auth_headers = $this->resolve_auth_headers();
 
-        if ( false === $token ) {
+        if ( false === $auth_headers ) {
             return new WP_Error( 'wphoula_not_connected', __( 'Not connected to Hou.la.', 'wp-houla' ) );
         }
 
@@ -103,11 +133,13 @@ class Wp_Houla_Api {
         $args = array(
             'method'  => $method,
             'timeout' => 30,
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-                'Accept'        => 'application/json',
-                'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+            'headers' => array_merge(
+                $auth_headers,
+                array(
+                    'Content-Type'  => 'application/json',
+                    'Accept'        => 'application/json',
+                    'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+                )
             ),
         );
 
@@ -126,12 +158,27 @@ class Wp_Houla_Api {
         $body_raw    = wp_remote_retrieve_body( $response );
         $body_json   = json_decode( $body_raw, true );
 
-        // Handle 401 - attempt token refresh
+        // Handle 401 -- API key may be revoked or token expired
         if ( 401 === $status_code && $attempt < $this->max_retries ) {
-            $this->log( 'Received 401, attempting token refresh...' );
+            $this->log( 'Received 401 on ' . $endpoint );
+
+            // If we were using an API key, it may have been revoked
+            // Try falling back to OAuth token refresh
+            if ( isset( $auth_headers['X-Api-Key'] ) ) {
+                $this->log( 'API key rejected, clearing stored key and trying token refresh...' );
+                // Clear the revoked key
+                $options = new Wp_Houla_Options();
+                $options->set( 'api_key', '' );
+            }
+
+            // Attempt OAuth token refresh
             if ( $this->auth->refresh_token() ) {
                 return $this->request( $method, $endpoint, $body, $query, $attempt + 1 );
             }
+
+            // Both auth methods failed -- mark as disconnected
+            $this->log( 'All authentication methods failed. Marking as disconnected.' );
+            $this->auth->disconnect();
             return new WP_Error( 'wphoula_unauthorized', __( 'Authentication failed. Please reconnect.', 'wp-houla' ) );
         }
 

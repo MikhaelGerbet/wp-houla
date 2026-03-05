@@ -218,6 +218,7 @@ class Wp_Houla_Auth {
             'access_token'     => '',
             'refresh_token'    => '',
             'token_expires_at' => 0,
+            'api_key'          => '',
             'workspace_id'     => '',
             'workspace_name'   => '',
             'user_email'       => '',
@@ -287,10 +288,86 @@ class Wp_Houla_Auth {
 
         $this->log( 'Successfully connected to Hou.la workspace: ' . ( $result['workspace_name'] ?? 'unknown' ) );
 
+        // Generate a persistent API key for ongoing requests
+        $this->provision_api_key();
+
         // Register webhook URL on Hou.la
         $this->register_webhook_on_houla();
 
         return $this->redirect_to_settings( 'connected' );
+    }
+
+    // =====================================================================
+    // API Key provisioning
+    // =====================================================================
+
+    /**
+     * Provision a persistent API key after OAuth connection.
+     *
+     * Calls POST /api/ecommerce/api-key with the fresh JWT to generate
+     * a houla_sk_... key. The key is stored encrypted in WP options
+     * and used for all subsequent API requests instead of the OAuth token.
+     */
+    private function provision_api_key() {
+        $token = Wp_Houla_Options::decrypt( $this->options->get( 'access_token' ) );
+
+        if ( empty( $token ) ) {
+            $this->log( 'Cannot provision API key: no access token available' );
+            return;
+        }
+
+        $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
+        $url     = $api_url . '/api/ecommerce/api-key';
+
+        $response = wp_remote_post( $url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+                'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+            ),
+            'body' => wp_json_encode( array(
+                'site_url' => get_site_url(),
+            ) ),
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            $this->log( 'API key provisioning failed: ' . $response->get_error_message() );
+            return;
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 201 === $status || 200 === $status ) {
+            if ( ! empty( $body['api_key'] ) ) {
+                $this->options->set( 'api_key', Wp_Houla_Options::encrypt( $body['api_key'] ) );
+                $this->log( 'API key provisioned successfully: ' . ( $body['key_prefix'] ?? '?' ) );
+            }
+        } else {
+            $msg = isset( $body['message'] ) ? $body['message'] : 'HTTP ' . $status;
+            $this->log( 'API key provisioning error: ' . $msg );
+        }
+    }
+
+    /**
+     * Get the stored API key (decrypted).
+     *
+     * @return string|false The API key or false if not available.
+     */
+    public function get_api_key() {
+        if ( ! $this->is_connected() ) {
+            return false;
+        }
+
+        $encrypted = $this->options->get( 'api_key' );
+
+        if ( empty( $encrypted ) ) {
+            return false;
+        }
+
+        return Wp_Houla_Options::decrypt( $encrypted );
     }
 
     // =====================================================================

@@ -172,6 +172,11 @@ class Wp_Houla_Sync {
             }
         }
 
+        // Category filter check
+        if ( ! $this->should_sync_product( $product ) ) {
+            return;
+        }
+
         $houla_id = get_post_meta( $product_id, '_wphoula_product_id', true );
         if ( empty( $houla_id ) ) {
             return;
