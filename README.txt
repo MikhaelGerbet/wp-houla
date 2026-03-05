@@ -11,7 +11,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 WC requires at least: 7.0
 WC tested up to: 9.0
 
-Generate tracked short links and QR codes for every WordPress post. Build a link-in-bio page and sell your WooCommerce products directly from Instagram, TikTok, or X.
+Tracked short links, QR codes & link-in-bio for every post. Sell WooCommerce products from Instagram, TikTok or X.
 
 == Description ==
 
