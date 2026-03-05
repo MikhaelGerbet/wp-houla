@@ -183,7 +183,7 @@ class Wp_Houla_Sync {
         }
 
         self::$syncing = true;
-        $result        = $this->api->patch( '/ecommerce/products/' . $houla_id, array(
+        $result        = $this->api->patch( '/ecommerce/products/' . $houla_id . '/stock', array(
             'stock_quantity' => $product->get_stock_quantity(),
             'stock_status'   => $product->get_stock_status(),
             'manage_stock'   => $product->get_manage_stock(),
