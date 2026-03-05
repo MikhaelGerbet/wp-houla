@@ -41,17 +41,40 @@ define( 'WPHOULA_BASENAME', plugin_basename( __FILE__ ) );
 define( 'WPHOULA_OPTIONS', 'wphoula-options' );
 define( 'WPHOULA_AUTHORIZED', 'wphoula-authorized' );
 
-// API URLs - change to staging/local for development
+// API URLs
 define( 'WPHOULA_DEFAULT_API_URL', 'https://hou.la' );
 define( 'WPHOULA_OAUTH_CLIENT_ID', 'wp-houla' );
 
+// Legacy constants (kept for backward compat — prefer the helper functions below)
+define( 'WPHOULA_API_URL', WPHOULA_DEFAULT_API_URL );
+define( 'WPHOULA_OAUTH_URL', WPHOULA_DEFAULT_API_URL . '/oauth/authorize' );
+define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_DEFAULT_API_URL . '/api/oauth/token' );
+
+/**
+ * Check if dev mode is active.
+ *
+ * Activated by adding `define( 'WPHOULA_DEV_MODE', true );` in wp-config.php.
+ * In dev mode, the API URL can be overridden (e.g. ngrok URL for local testing).
+ * In production this is always false — the API URL is locked to https://hou.la.
+ *
+ * @return bool
+ */
+function wphoula_is_dev_mode() {
+    return defined( 'WPHOULA_DEV_MODE' ) && WPHOULA_DEV_MODE === true;
+}
+
 /**
  * Get the configured API URL.
- * Reads from plugin options (Debug tab), falls back to production URL.
+ *
+ * In dev mode: reads from plugin options (Debug tab), falls back to production URL.
+ * In prod mode: always returns https://hou.la (ignores any stored custom URL).
  *
  * @return string API base URL (no trailing slash).
  */
 function wphoula_get_api_url() {
+    if ( ! wphoula_is_dev_mode() ) {
+        return WPHOULA_DEFAULT_API_URL;
+    }
     $options = get_option( WPHOULA_OPTIONS, array() );
     $url = isset( $options['api_url'] ) && ! empty( $options['api_url'] )
         ? $options['api_url']
@@ -59,10 +82,23 @@ function wphoula_get_api_url() {
     return rtrim( $url, '/' );
 }
 
-// Legacy constants (use wphoula_get_api_url() for API URL in new code)
-define( 'WPHOULA_API_URL', WPHOULA_DEFAULT_API_URL );
-define( 'WPHOULA_OAUTH_URL', WPHOULA_DEFAULT_API_URL . '/oauth/authorize' );
-define( 'WPHOULA_OAUTH_TOKEN_URL', WPHOULA_DEFAULT_API_URL . '/api/oauth/token' );
+/**
+ * Get the OAuth authorize URL (dynamic, respects dev mode).
+ *
+ * @return string
+ */
+function wphoula_get_oauth_url() {
+    return wphoula_get_api_url() . '/oauth/authorize';
+}
+
+/**
+ * Get the OAuth token endpoint URL (dynamic, respects dev mode).
+ *
+ * @return string
+ */
+function wphoula_get_token_url() {
+    return wphoula_get_api_url() . '/api/oauth/token';
+}
 
 define( 'WPHOULA_LOG', WPHOULA_DIR . '/log/debug.txt' );
 

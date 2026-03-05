@@ -79,7 +79,8 @@ class Wp_Houla_Auth {
             'code_challenge_method' => 'S256',
         );
 
-        return WPHOULA_OAUTH_URL . '?' . http_build_query( $params );
+        $oauth_url = function_exists( 'wphoula_get_oauth_url' ) ? wphoula_get_oauth_url() : WPHOULA_OAUTH_URL;
+        return $oauth_url . '?' . http_build_query( $params );
     }
 
     /**
@@ -99,7 +100,8 @@ class Wp_Houla_Auth {
      * @return array|WP_Error Token data or error.
      */
     public function exchange_code( $code, $code_verifier ) {
-        $response = wp_remote_post( WPHOULA_OAUTH_TOKEN_URL, array(
+        $token_url = function_exists( 'wphoula_get_token_url' ) ? wphoula_get_token_url() : WPHOULA_OAUTH_TOKEN_URL;
+        $response = wp_remote_post( $token_url, array(
             'timeout' => 30,
             'headers' => array( 'Content-Type' => 'application/json' ),
             'body'    => wp_json_encode( array(
@@ -138,7 +140,8 @@ class Wp_Houla_Auth {
             return false;
         }
 
-        $response = wp_remote_post( WPHOULA_OAUTH_TOKEN_URL, array(
+        $token_url = function_exists( 'wphoula_get_token_url' ) ? wphoula_get_token_url() : WPHOULA_OAUTH_TOKEN_URL;
+        $response = wp_remote_post( $token_url, array(
             'timeout' => 30,
             'headers' => array( 'Content-Type' => 'application/json' ),
             'body'    => wp_json_encode( array(

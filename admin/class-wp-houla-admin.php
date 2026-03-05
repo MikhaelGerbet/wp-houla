@@ -228,9 +228,9 @@ class Wp_Houla_Admin {
             $sync_categories = array_map( 'absint', $_POST['sync_categories'] );
         }
 
-        // Custom API URL (dev mode)
+        // Custom API URL (only accepted in dev mode)
         $api_url = '';
-        if ( isset( $_POST['api_url'] ) ) {
+        if ( isset( $_POST['api_url'] ) && function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) {
             $api_url = esc_url_raw( trim( $_POST['api_url'] ) );
         }
 

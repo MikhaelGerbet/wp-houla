@@ -11,6 +11,7 @@ Connect your WordPress site to [Hou.la](https://hou.la) to automatically generat
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Authentication](#authentication)
 - [Usage](#usage)
   - [Automatic Short Links](#automatic-short-links)
   - [QR Codes](#qr-codes)
@@ -89,10 +90,12 @@ The plugin covers two primary use cases:
 
 ### Security
 
-- OAuth 2.0 with PKCE (Proof Key for Code Exchange) authentication
-- AES-256-CBC encryption of access tokens at rest
+- OAuth 2.0 with PKCE (Proof Key for Code Exchange) for initial connection
+- **Persistent API key** (`houla_sk_...`) generated after OAuth, used for all subsequent requests
+- API key stored encrypted (AES-256-CBC) in WordPress options
+- Automatic fallback to OAuth token refresh if API key is revoked
+- Automatic API key rotation on reconnection (old key revoked, new one generated)
 - CSRF protection via OAuth `state` parameter
-- Automatic token refresh before expiration
 - HMAC-SHA256 verification on all incoming webhooks
 
 ---
@@ -147,6 +150,8 @@ A Hou.la account (free or Pro) is required. Create an account at [hou.la](https:
 
 The workspace name and account email are displayed in the settings.
 
+After OAuth, the plugin automatically provisions a persistent API key (`houla_sk_...`) that is used for all subsequent API requests. This key does not expire and survives OAuth token expiration. See [Authentication](#authentication) for details.
+
 ### 2. Sync Settings
 
 In the **Sync** tab:
@@ -184,6 +189,65 @@ The plugin will use this URL for all API calls instead of the production `https:
 | Staging server | `https://staging.hou.la` |
 
 Leave the field empty to use the production API (`https://hou.la`).
+
+---
+
+## Authentication
+
+### How it works
+
+WP-Houla uses a two-phase authentication strategy:
+
+1. **Initial connection** -- OAuth 2.0 + PKCE flow to authorize the plugin with a Hou.la account. This creates a short-lived JWT access token (15 min) and a refresh token (7 days).
+
+2. **Persistent API key** -- immediately after the OAuth token exchange, the plugin calls `POST /api/ecommerce/api-key` to generate a persistent API key (`houla_sk_...`). This key is stored encrypted in WordPress options and used for all subsequent API requests via the `X-Api-Key` header.
+
+### Why not just OAuth tokens?
+
+OAuth access tokens expire after 15 minutes. The refresh token lasts 7 days but can also fail (server restart, token rotation, user password change). When both expire, the plugin shows "Not connected" and all sync/shortlink operations stop until manual reconnection.
+
+The API key never expires. It can only be revoked manually from the Hou.la dashboard. This ensures the plugin keeps working indefinitely after the initial connection.
+
+### Failure handling
+
+| Scenario | Behavior |
+|----------|----------|
+| API key valid | Request succeeds via `X-Api-Key` header |
+| API key revoked (401) | Key cleared, falls back to OAuth token refresh |
+| OAuth refresh succeeds | Request retried with new Bearer token |
+| Both fail | Plugin marked as disconnected, admin notice shown |
+| Reconnection via OAuth | New API key generated, old one automatically revoked |
+| No API key (legacy install) | Falls back to OAuth Bearer token transparently |
+
+### Request flow diagram
+
+```
+request()
+  |-- resolve_auth_headers()
+  |     |-- get_api_key() -> X-Api-Key header     (preferred)
+  |     |-- get_access_token() -> Bearer header   (fallback)
+  |
+  |-- HTTP request
+  |     |-- 200 OK -> return response
+  |     |-- 401 Unauthorized
+  |           |-- was API key? -> clear key, try refresh_token()
+  |           |     |-- refresh OK -> retry request with Bearer
+  |           |     |-- refresh fail -> disconnect()
+  |           |-- was Bearer? -> try refresh_token()
+  |                 |-- refresh OK -> retry request
+  |                 |-- refresh fail -> disconnect()
+```
+
+### API key details
+
+| Property | Value |
+|----------|-------|
+| Format | `houla_sk_` + 24 random bytes (base64url) |
+| Storage | AES-256-CBC encrypted in `wp_options` (`wphoula-options.api_key`) |
+| Name on Hou.la | `wp-houla: <site_url>` |
+| Expiration | Never (revocable from Hou.la dashboard) |
+| Scope | Full API access for the connected user |
+| Rotation | Automatic on reconnection (old key revoked) |
 
 ---
 
@@ -322,6 +386,14 @@ Short links on Hou.la remain active. Manage them from your Hou.la dashboard.
 
 Yes. Short links and QR codes work on all public post types regardless of WooCommerce. The commerce features (product sync, order reception, webhook) require WooCommerce 7.0+.
 
+### What happens if the OAuth token expires?
+
+Nothing. After the initial connection, the plugin uses a persistent API key that never expires. The API key is generated automatically during the OAuth flow and stored encrypted in WordPress. Even if the OAuth tokens expire or the refresh fails, the API key continues to work.
+
+### Can the API key be revoked?
+
+Yes, from the Hou.la dashboard (Settings > API Keys). If the key is revoked, the plugin will attempt to refresh the OAuth token as a fallback. If both fail, the plugin will ask you to reconnect.
+
 ### Is a paid account required?
 
 No. The free plan provides all features. The only difference is the commission on sales: 8% (free) vs 3% (Pro). Short links and QR codes are free and unlimited.
@@ -390,8 +462,8 @@ wp-houla/
     class-wp-houla-options.php      Options CRUD + AES-256-CBC encryption
     class-wp-houla-activator.php    Activation (PHP check, webhook secret)
     class-wp-houla-deactivator.php  Deactivation (transient cleanup)
-    class-wp-houla-auth.php         OAuth 2.0 + PKCE
-    class-wp-houla-api.php          HTTP client for the Hou.la API
+    class-wp-houla-auth.php         OAuth 2.0 + PKCE + API key provisioning
+    class-wp-houla-api.php          HTTP client (API key + Bearer fallback)
     class-wp-houla-shortlink.php    Short link generation
     class-wp-houla-post-metabox.php Post metabox (link + QR + stats)
     class-wp-houla-sync.php         Product sync (WC -> Hou.la)

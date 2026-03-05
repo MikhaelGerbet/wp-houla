@@ -38,6 +38,22 @@ $last_order_at   = $options->get( 'last_order_at' );
         </div>
     <?php endif; ?>
 
+    <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
+        <div class="notice notice-warning" style="border-left-color: #d63638; background: #fff2f2;">
+            <p>
+                <strong style="color: #d63638;">&#9888; DEV MODE</strong> &mdash;
+                <?php
+                printf(
+                    esc_html__( 'API URL: %s', 'wp-houla' ),
+                    '<code>' . esc_html( wphoula_get_api_url() ) . '</code>'
+                );
+                ?>
+                <br>
+                <small><?php esc_html_e( 'To disable: remove WPHOULA_DEV_MODE from wp-config.php and clear api_url.', 'wp-houla' ); ?></small>
+            </p>
+        </div>
+    <?php endif; ?>
+
     <!-- ============================================================= -->
     <!-- Tab navigation                                                 -->
     <!-- ============================================================= -->
@@ -450,6 +466,7 @@ $last_order_at   = $options->get( 'last_order_at' );
                         </label>
                     </td>
                 </tr>
+                <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
                 <tr>
                     <th><?php esc_html_e( 'API URL', 'wp-houla' ); ?></th>
                     <td>
@@ -471,10 +488,11 @@ $last_order_at   = $options->get( 'last_order_at' );
                             ?>
                         </p>
                         <p class="description" style="margin-top: 8px; color: #d63638;">
-                            <?php esc_html_e( 'Dev mode tips: use an ngrok URL, local IP (e.g. http://192.168.1.100:53001), or http://localhost:53001 if WP runs locally too.', 'wp-houla' ); ?>
+                            <?php esc_html_e( 'OAuth + all API calls will use this URL. Example: https://xxx.ngrok-free.dev', 'wp-houla' ); ?>
                         </p>
                     </td>
                 </tr>
+                <?php endif; ?>
                 <tr>
                     <th><?php esc_html_e( 'Plugin version', 'wp-houla' ); ?></th>
                     <td><?php echo esc_html( WPHOULA_VERSION ); ?></td>
