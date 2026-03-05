@@ -240,8 +240,18 @@ class Wp_Houla_Sync {
         );
 
         // Filter by WooCommerce categories if configured
+        // wc_get_products 'category' expects slugs, so convert term IDs to slugs
         if ( ! empty( $sync_categories ) && is_array( $sync_categories ) ) {
-            $query_args['category'] = array_map( 'absint', $sync_categories );
+            $slugs = array();
+            foreach ( $sync_categories as $cat_id ) {
+                $term = get_term( absint( $cat_id ), 'product_cat' );
+                if ( $term && ! is_wp_error( $term ) ) {
+                    $slugs[] = $term->slug;
+                }
+            }
+            if ( ! empty( $slugs ) ) {
+                $query_args['category'] = $slugs;
+            }
         }
 
         do {
