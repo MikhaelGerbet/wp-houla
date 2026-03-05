@@ -295,6 +295,22 @@ class Wp_Houla_Admin {
             }
         }
 
+        // Order status concordance map
+        $order_status_map = array();
+        if ( isset( $_POST['order_status_map'] ) && is_array( $_POST['order_status_map'] ) ) {
+            $valid_houla = array( 'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded' );
+            foreach ( $_POST['order_status_map'] as $houla_status => $wc_slug ) {
+                $houla_status = sanitize_key( $houla_status );
+                $wc_slug      = sanitize_text_field( $wc_slug );
+                if ( in_array( $houla_status, $valid_houla, true ) && ! empty( $wc_slug ) ) {
+                    $order_status_map[ $houla_status ] = $wc_slug;
+                }
+            }
+        }
+
+        // Tracking sync
+        $sync_tracking = ! empty( $_POST['sync_tracking'] );
+
         $this->options->set_many( array(
             'auto_sync'              => $auto_sync,
             'sync_on_publish'        => $sync_on_publish,
@@ -305,6 +321,8 @@ class Wp_Houla_Admin {
             'price_adjustment_type'  => $price_adj_type,
             'price_adjustment_value' => $price_adj_value,
             'category_collection_map' => $cat_collection_map,
+            'order_status_map'       => $order_status_map,
+            'sync_tracking'          => $sync_tracking,
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );

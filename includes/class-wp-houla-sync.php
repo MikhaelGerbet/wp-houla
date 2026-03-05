@@ -591,9 +591,10 @@ class Wp_Houla_Sync {
     // =====================================================================
 
     /**
-     * Concordance: WooCommerce status → Hou.la status.
+     * Default concordance: WooCommerce status → Hou.la status.
+     * Used as fallback when no custom mapping is configured.
      */
-    private static $wc_to_houla_status = array(
+    private static $default_wc_to_houla = array(
         'on-hold'    => 'pending',
         'processing' => 'processing',
         'completed'  => 'delivered',
@@ -602,9 +603,159 @@ class Wp_Houla_Sync {
     );
 
     /**
+     * Build the WC → Hou.la status mapping from the saved concordance table.
+     * The concordance is stored as houla_status => wc-slug, so we invert it.
+     *
+     * @return array WC status (without wc- prefix) => Hou.la status.
+     */
+    private function get_wc_to_houla_map() {
+        $saved_map = $this->options->get( 'order_status_map' );
+        if ( ! is_array( $saved_map ) || empty( $saved_map ) ) {
+            return self::$default_wc_to_houla;
+        }
+
+        // Invert: houla_status => 'wc-xxx' becomes 'xxx' => houla_status
+        $inverted = array();
+        foreach ( $saved_map as $houla_status => $wc_slug ) {
+            // Remove 'wc-' prefix if present
+            $wc_key = preg_replace( '/^wc-/', '', $wc_slug );
+            $inverted[ $wc_key ] = $houla_status;
+        }
+
+        return $inverted;
+    }
+
+    /**
+     * Carrier tracking URL patterns.
+     * Each carrier maps to a URL template with {tracking} placeholder.
+     */
+    private static $carrier_tracking_urls = array(
+        'colissimo'    => 'https://www.laposte.fr/outils/suivre-vos-envois?code={tracking}',
+        'la_poste'     => 'https://www.laposte.fr/outils/suivre-vos-envois?code={tracking}',
+        'laposte'      => 'https://www.laposte.fr/outils/suivre-vos-envois?code={tracking}',
+        'chronopost'   => 'https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT={tracking}',
+        'dpd'          => 'https://trace.dpd.fr/fr/trace/{tracking}',
+        'gls'          => 'https://gls-group.com/FR/fr/suivi-colis?match={tracking}',
+        'ups'          => 'https://www.ups.com/track?tracknum={tracking}',
+        'fedex'        => 'https://www.fedex.com/fedextrack/?trknbr={tracking}',
+        'dhl'          => 'https://www.dhl.com/fr-fr/home/suivi.html?tracking-id={tracking}',
+        'dhl_express'  => 'https://www.dhl.com/fr-fr/home/suivi.html?tracking-id={tracking}',
+        'mondialrelay' => 'https://www.mondialrelay.fr/suivi-de-colis/?NumeroExpedition={tracking}',
+        'mondial_relay'=> 'https://www.mondialrelay.fr/suivi-de-colis/?NumeroExpedition={tracking}',
+        'relais_colis' => 'https://www.relaiscolis.com/suivi-de-colis/index/tracking/{tracking}',
+        'tnt'          => 'https://www.tnt.com/express/fr_fr/site/outils-expedition/suivi.html?searchType=con&cons={tracking}',
+        'colis_prive'  => 'https://www.colisprive.fr/moncolis/pages/detailColis.aspx?numColis={tracking}',
+        'lettre_suivie'=> 'https://www.laposte.fr/outils/suivre-vos-envois?code={tracking}',
+        'usps'         => 'https://tools.usps.com/go/TrackConfirmAction?tLabels={tracking}',
+        'royal_mail'   => 'https://www.royalmail.com/track-your-item#/tracking-results/{tracking}',
+        'postnl'       => 'https://postnl.nl/tracktrace/?B={tracking}',
+        'bpost'        => 'https://track.bpost.cloud/btr/web/#/search?itemCode={tracking}',
+        'hermes'       => 'https://www.myhermes.co.uk/tracking/{tracking}',
+        'dpd_uk'       => 'https://track.dpd.co.uk/parcels/{tracking}',
+    );
+
+    /**
+     * Build a tracking URL from carrier name and tracking number.
+     *
+     * @param string $carrier         Carrier identifier (e.g. 'colissimo', 'dpd').
+     * @param string $tracking_number Tracking number.
+     * @return string|null The tracking URL, or null if carrier is unknown.
+     */
+    private function build_tracking_url( $carrier, $tracking_number ) {
+        $carrier_key = strtolower( sanitize_key( $carrier ) );
+        // Try exact match
+        if ( isset( self::$carrier_tracking_urls[ $carrier_key ] ) ) {
+            return str_replace( '{tracking}', rawurlencode( $tracking_number ), self::$carrier_tracking_urls[ $carrier_key ] );
+        }
+        // Try partial match (e.g. "colissimo_international" matches "colissimo")
+        foreach ( self::$carrier_tracking_urls as $key => $url_template ) {
+            if ( strpos( $carrier_key, $key ) !== false || strpos( $key, $carrier_key ) !== false ) {
+                return str_replace( '{tracking}', rawurlencode( $tracking_number ), $url_template );
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract tracking information from a WooCommerce order.
+     * Supports multiple popular tracking plugins.
+     *
+     * @param WC_Order $order WooCommerce order.
+     * @return array|null { carrier: string, tracking_number: string, tracking_url: string|null } or null.
+     */
+    private function extract_tracking_info( $order ) {
+        $order_id = $order->get_id();
+
+        // 1. Advanced Shipment Tracking (AST) — most popular plugin
+        //    Stores data in '_wc_shipment_tracking_items' order meta (serialized array)
+        $ast_items = $order->get_meta( '_wc_shipment_tracking_items' );
+        if ( ! empty( $ast_items ) && is_array( $ast_items ) ) {
+            $item = end( $ast_items ); // Get the last (most recent) tracking entry
+            $carrier  = isset( $item['tracking_provider'] ) ? $item['tracking_provider'] : '';
+            $number   = isset( $item['tracking_number'] ) ? $item['tracking_number'] : '';
+            if ( ! empty( $carrier ) ) {
+                $carrier = strtolower( str_replace( ' ', '_', $carrier ) );
+            }
+            if ( ! empty( $number ) ) {
+                return array(
+                    'carrier'         => $carrier ?: 'other',
+                    'tracking_number' => $number,
+                    'tracking_url'    => $this->build_tracking_url( $carrier, $number ),
+                );
+            }
+        }
+
+        // 2. WooCommerce Shipment Tracking (official WooCommerce extension)
+        //    Also uses '_wc_shipment_tracking_items' — same format as AST
+
+        // 3. YITH WooCommerce Order Tracking
+        $yith_carrier = $order->get_meta( 'ywot_tracking_code' );
+        $yith_name    = $order->get_meta( 'ywot_carrier_name' );
+        if ( ! empty( $yith_carrier ) ) {
+            $carrier = ! empty( $yith_name ) ? strtolower( str_replace( ' ', '_', $yith_name ) ) : 'other';
+            return array(
+                'carrier'         => $carrier,
+                'tracking_number' => $yith_carrier,
+                'tracking_url'    => $this->build_tracking_url( $carrier, $yith_carrier ),
+            );
+        }
+
+        // 4. Generic fallback: check common meta keys
+        $tracking_number = '';
+        $carrier_name    = '';
+        $meta_keys_tracking = array( '_tracking_number', '_shipment_tracking_number', 'tracking_number', '_wc_tracking_number' );
+        $meta_keys_carrier  = array( '_tracking_provider', '_shipping_provider', 'carrier', '_carrier', '_wc_tracking_provider' );
+
+        foreach ( $meta_keys_tracking as $key ) {
+            $val = $order->get_meta( $key );
+            if ( ! empty( $val ) ) {
+                $tracking_number = $val;
+                break;
+            }
+        }
+        foreach ( $meta_keys_carrier as $key ) {
+            $val = $order->get_meta( $key );
+            if ( ! empty( $val ) ) {
+                $carrier_name = strtolower( str_replace( ' ', '_', $val ) );
+                break;
+            }
+        }
+
+        if ( ! empty( $tracking_number ) ) {
+            return array(
+                'carrier'         => $carrier_name ?: 'other',
+                'tracking_number' => $tracking_number,
+                'tracking_url'    => $this->build_tracking_url( $carrier_name, $tracking_number ),
+            );
+        }
+
+        return null;
+    }
+
+    /**
      * Triggered when a WooCommerce order status changes.
      *
-     * Sends the new status to the Hou.la API so it stays in sync.
+     * Sends the new status + tracking info to the Hou.la API so it stays in sync.
      * Only fires for orders that have a _houla_order_id meta.
      * Skips sync if _houla_skip_sync flag is set (loop prevention).
      *
@@ -631,9 +782,10 @@ class Wp_Houla_Sync {
             return;
         }
 
-        // Map WC status to Hou.la status
-        $houla_status = isset( self::$wc_to_houla_status[ $new_status ] )
-            ? self::$wc_to_houla_status[ $new_status ]
+        // Map WC status to Hou.la status using configurable concordance
+        $wc_to_houla = $this->get_wc_to_houla_map();
+        $houla_status = isset( $wc_to_houla[ $new_status ] )
+            ? $wc_to_houla[ $new_status ]
             : null;
 
         if ( ! $houla_status ) {
@@ -641,11 +793,25 @@ class Wp_Houla_Sync {
             return;
         }
 
-        // Map Hou.la status to the WC status that the API will broadcast
-        // (the API endpoint expects a wc_status string)
+        // Build the API payload
+        $payload = array( 'wc_status' => $new_status );
+
+        // Extract and include tracking information if enabled
+        if ( $this->options->get( 'sync_tracking' ) ) {
+            $tracking = $this->extract_tracking_info( $order );
+            if ( $tracking ) {
+                $payload['carrier']         = $tracking['carrier'];
+                $payload['tracking_number'] = $tracking['tracking_number'];
+                if ( ! empty( $tracking['tracking_url'] ) ) {
+                    $payload['tracking_url'] = $tracking['tracking_url'];
+                }
+                $this->log( 'Order #' . $order_id . ': tracking found — ' . $tracking['carrier'] . ' ' . $tracking['tracking_number'] );
+            }
+        }
+
         $result = $this->api->patch(
             '/ecommerce/orders/' . $houla_order_id . '/status',
-            array( 'wc_status' => $new_status )
+            $payload
         );
 
         if ( is_wp_error( $result ) ) {

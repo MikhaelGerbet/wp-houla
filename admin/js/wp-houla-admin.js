@@ -108,6 +108,7 @@
             api_url: ($('#wphoula-api-url').val() || '').trim(),
             price_adjustment_type: $('#wphoula-price-adj-type').val() || 'none',
             price_adjustment_value: $('#wphoula-price-adj-value').val() || 0,
+            sync_tracking: $('#wphoula-sync-tracking').is(':checked') ? 1 : 0,
             'allowed_post_types[]': postTypes,
             'sync_categories[]': syncCategories,
         };
@@ -116,6 +117,15 @@
         for (var catId in catCollectionMap) {
             data['category_collection_map[' + catId + ']'] = catCollectionMap[catId];
         }
+
+        // Add order status concordance map
+        $('.wphoula-status-map').each(function () {
+            var houlaStatus = $(this).data('houla-status');
+            var wcSlug = $(this).val();
+            if (houlaStatus && wcSlug) {
+                data['order_status_map[' + houlaStatus + ']'] = wcSlug;
+            }
+        });
 
         $.post(ajaxUrl, data, function (response) {
             $btn.prop('disabled', false);

@@ -237,9 +237,10 @@ class Wp_Houla_Orders {
     // =====================================================================
 
     /**
-     * Concordance: Hou.la status → WooCommerce status.
+     * Default concordance: Hou.la status → WooCommerce status.
+     * Used as fallback when no custom mapping is configured.
      */
-    private static $houla_to_wc_status = array(
+    private static $default_houla_to_wc = array(
         'pending'    => 'on-hold',
         'paid'       => 'processing',
         'processing' => 'processing',
@@ -248,6 +249,26 @@ class Wp_Houla_Orders {
         'cancelled'  => 'cancelled',
         'refunded'   => 'refunded',
     );
+
+    /**
+     * Get the Hou.la → WC status mapping from the saved concordance table.
+     *
+     * @return array Hou.la status => WC status (without wc- prefix).
+     */
+    private function get_houla_to_wc_map() {
+        $saved_map = $this->options->get( 'order_status_map' );
+        if ( ! is_array( $saved_map ) || empty( $saved_map ) ) {
+            return self::$default_houla_to_wc;
+        }
+
+        // saved_map is houla_status => 'wc-xxx', convert to houla_status => 'xxx'
+        $result = array();
+        foreach ( $saved_map as $houla_status => $wc_slug ) {
+            $result[ $houla_status ] = preg_replace( '/^wc-/', '', $wc_slug );
+        }
+
+        return $result;
+    }
 
     /**
      * Handle an order.status_changed webhook.

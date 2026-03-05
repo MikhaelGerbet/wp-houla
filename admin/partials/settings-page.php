@@ -61,6 +61,11 @@ $last_order_at   = $options->get( 'last_order_at' );
         <a href="#tab-connection" class="nav-tab nav-tab-active" data-tab="connection">
             <?php esc_html_e( 'Connection', 'wp-houla' ); ?>
         </a>
+        <?php if ( $is_connected ) : ?>
+        <a href="#tab-shortlinks" class="nav-tab" data-tab="shortlinks">
+            <?php esc_html_e( 'Short Links & QR Code', 'wp-houla' ); ?>
+        </a>
+        <?php endif; ?>
         <?php if ( wphoula_is_woocommerce_active() ) : ?>
         <a href="#tab-sync" class="nav-tab" data-tab="sync">
             <?php esc_html_e( 'Sync', 'wp-houla' ); ?>
@@ -120,10 +125,18 @@ $last_order_at   = $options->get( 'last_order_at' );
                 </p>
             <?php endif; ?>
         </div>
+    </div>
 
-        <?php if ( $is_connected ) : ?>
-        <div class="wphoula-card" style="margin-top: 20px;">
+    <!-- ============================================================= -->
+    <!-- TAB: Short Links & QR Code                                     -->
+    <!-- ============================================================= -->
+    <?php if ( $is_connected ) : ?>
+    <div class="wphoula-tab-content" id="tab-shortlinks" style="display:none;">
+        <div class="wphoula-card">
             <h2><?php esc_html_e( 'Shortlink Settings', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Configure which content types get automatic Hou.la short links and QR codes.', 'wp-houla' ); ?>
+            </p>
 
             <table class="form-table">
                 <tr>
@@ -153,13 +166,13 @@ $last_order_at   = $options->get( 'last_order_at' );
             </table>
 
             <p>
-                <button type="button" class="button button-primary" id="wphoula-save-settings">
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
                     <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
                 </button>
             </p>
         </div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- ============================================================= -->
     <!-- TAB: Sync (WooCommerce only)                                   -->
@@ -477,6 +490,125 @@ $last_order_at   = $options->get( 'last_order_at' );
 
             <?php endif; ?>
         </div>
+
+        <?php if ( $is_connected ) : ?>
+        <!-- ── Status concordance table ── -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Status Concordance', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Define how WooCommerce order statuses map to Hou.la statuses. This mapping is used in both directions.', 'wp-houla' ); ?>
+            </p>
+
+            <?php
+            $houla_statuses = array(
+                'pending'    => __( 'Pending', 'wp-houla' ),
+                'paid'       => __( 'Paid', 'wp-houla' ),
+                'processing' => __( 'Processing', 'wp-houla' ),
+                'shipped'    => __( 'Shipped', 'wp-houla' ),
+                'delivered'  => __( 'Delivered', 'wp-houla' ),
+                'cancelled'  => __( 'Cancelled', 'wp-houla' ),
+                'refunded'   => __( 'Refunded', 'wp-houla' ),
+            );
+
+            // Get all registered WooCommerce statuses
+            $wc_statuses = function_exists( 'wc_get_order_statuses' ) ? wc_get_order_statuses() : array();
+
+            // Current saved mapping (houla_status => wc_status_slug)
+            $status_map = $options->get( 'order_status_map' );
+            if ( ! is_array( $status_map ) || empty( $status_map ) ) {
+                // Default mapping
+                $status_map = array(
+                    'pending'    => 'wc-on-hold',
+                    'paid'       => 'wc-processing',
+                    'processing' => 'wc-processing',
+                    'shipped'    => 'wc-completed',
+                    'delivered'  => 'wc-completed',
+                    'cancelled'  => 'wc-cancelled',
+                    'refunded'   => 'wc-refunded',
+                );
+            }
+            ?>
+
+            <table class="wphoula-concordance-table widefat">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;"><?php esc_html_e( 'Hou.la Status', 'wp-houla' ); ?></th>
+                        <th style="width: 10%; text-align:center;">→</th>
+                        <th style="width: 55%;"><?php esc_html_e( 'WooCommerce Status', 'wp-houla' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $houla_statuses as $houla_key => $houla_label ) : ?>
+                    <tr>
+                        <td>
+                            <span class="wphoula-status-badge wphoula-status-badge--<?php echo esc_attr( $houla_key ); ?>">
+                                <?php echo esc_html( $houla_label ); ?>
+                            </span>
+                        </td>
+                        <td style="text-align:center; font-size: 18px; color: #999;">↔</td>
+                        <td>
+                            <select class="wphoula-status-map" data-houla-status="<?php echo esc_attr( $houla_key ); ?>">
+                                <option value=""><?php esc_html_e( '— Not mapped —', 'wp-houla' ); ?></option>
+                                <?php foreach ( $wc_statuses as $wc_slug => $wc_label ) : ?>
+                                <option value="<?php echo esc_attr( $wc_slug ); ?>"
+                                    <?php selected( isset( $status_map[ $houla_key ] ) ? $status_map[ $houla_key ] : '', $wc_slug ); ?>>
+                                    <?php echo esc_html( $wc_label ); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <p style="margin-top: 12px;">
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
+        </div>
+
+        <!-- ── Tracking auto-sync settings ── -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Tracking Sync', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'When a tracking number is added to a WooCommerce order, it will be automatically sent to Hou.la so buyers can track their shipment.', 'wp-houla' ); ?>
+            </p>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Auto-sync tracking', 'wp-houla' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="wphoula-sync-tracking" <?php checked( $options->get( 'sync_tracking' ) ); ?>>
+                            <?php esc_html_e( 'Automatically push tracking numbers to Hou.la when added in WooCommerce', 'wp-houla' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Supported plugins', 'wp-houla' ); ?></th>
+                    <td>
+                        <ul style="margin: 0; list-style: disc inside;">
+                            <li>Advanced Shipment Tracking (AST)</li>
+                            <li>WooCommerce Shipment Tracking</li>
+                            <li>YITH WooCommerce Order Tracking</li>
+                            <li><?php esc_html_e( 'Or any plugin storing tracking in order meta', 'wp-houla' ); ?></li>
+                        </ul>
+                        <p class="description" style="margin-top: 8px;">
+                            <?php esc_html_e( 'Tracking links are generated automatically for major carriers (Colissimo, DPD, GLS, Chronopost, UPS, FedEx, DHL, etc.).', 'wp-houla' ); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <p>
+                <button type="button" class="button button-primary wphoula-save-settings-btn">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
+        </div>
+        <?php endif; ?>
     </div>
     <?php endif; /* wphoula_is_woocommerce_active() */ ?>
 

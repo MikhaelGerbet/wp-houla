@@ -493,3 +493,67 @@
     font-size: 12px;
     font-weight: 600;
 }
+
+/* =====================================================================
+   Concordance table
+   ===================================================================== */
+
+.wphoula-concordance-table {
+    border-collapse: collapse;
+}
+.wphoula-concordance-table thead th {
+    background: #f6f7f7;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+}
+.wphoula-concordance-table tbody td {
+    padding: 10px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+}
+.wphoula-concordance-table tbody tr:hover {
+    background: #f9f9f9;
+}
+.wphoula-concordance-table select {
+    width: 100%;
+    max-width: 300px;
+}
+
+/* Status badges for concordance table */
+.wphoula-status-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.wphoula-status-badge--pending {
+    background: #fff3cd;
+    color: #856404;
+}
+.wphoula-status-badge--paid {
+    background: #cce5ff;
+    color: #004085;
+}
+.wphoula-status-badge--processing {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+.wphoula-status-badge--shipped {
+    background: #d4edda;
+    color: #155724;
+}
+.wphoula-status-badge--delivered {
+    background: #c3e6cb;
+    color: #155724;
+}
+.wphoula-status-badge--cancelled {
+    background: #f5c6cb;
+    color: #721c24;
+}
+.wphoula-status-badge--refunded {
+    background: #e2e3e5;
+    color: #383d41;
+}
