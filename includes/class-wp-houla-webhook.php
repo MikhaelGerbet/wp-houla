@@ -109,11 +109,15 @@ class Wp_Houla_Webhook {
      * @return WP_REST_Response|WP_Error
      */
     public function handle_webhook( $request ) {
-        $payload = $request->get_json_params();
-        $event   = isset( $payload['event'] ) ? sanitize_text_field( $payload['event'] ) : '';
-        $data    = isset( $payload['data'] ) ? $payload['data'] : array();
+        $payload   = $request->get_json_params();
+        $event     = isset( $payload['event'] ) ? sanitize_text_field( $payload['event'] ) : '';
+        $data      = isset( $payload['data'] ) ? $payload['data'] : array();
+        $test_mode = ! empty( $payload['test_mode'] );
 
-        $this->log( 'Webhook received: event=' . $event );
+        $this->log( 'Webhook received: event=' . $event . ( $test_mode ? ' [TEST MODE]' : '' ) );
+
+        // Propagate test_mode flag into data for handlers
+        $data['_test_mode'] = $test_mode;
 
         if ( empty( $event ) || empty( $data ) ) {
             return new WP_REST_Response( array(

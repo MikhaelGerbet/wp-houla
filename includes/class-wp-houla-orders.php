@@ -158,6 +158,15 @@ class Wp_Houla_Orders {
                 $order->set_transaction_id( sanitize_text_field( $data['transaction_id'] ) );
                 $order->update_meta_data( '_houla_transaction_id', sanitize_text_field( $data['transaction_id'] ) );
             }
+
+            // Test mode indicator
+            if ( ! empty( $data['_test_mode'] ) ) {
+                $order->update_meta_data( '_houla_test_mode', '1' );
+                $order->add_order_note( '⚠️ Commande de test (Hou.la mode développement)' );
+
+                // Prefix billing name so it's immediately visible in WooCommerce admin
+                $order->set_billing_first_name( '[TEST] ' . $order->get_billing_first_name() );
+            }
             if ( ! empty( $data['paid_at'] ) ) {
                 $order->set_date_paid( $data['paid_at'] );
             }
