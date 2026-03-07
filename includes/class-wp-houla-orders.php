@@ -94,14 +94,22 @@ class Wp_Houla_Orders {
 
                 $product = wc_get_product( $variation_id ?: $product_id );
                 if ( ! $product ) {
-                    $this->log( 'Product #' . $product_id . ' not found, skipping line item.' );
-                    continue;
+                    // Product not found in WooCommerce - add as a custom line item
+                    // so the order total stays correct
+                    $item_name = ! empty( $item['name'] ) ? sanitize_text_field( $item['name'] ) : 'Hou.la Product #' . $product_id;
+                    $this->log( 'Product #' . $product_id . ' not found in WC, adding as custom fee: ' . $item_name );
+                    $fee = new WC_Order_Item_Fee();
+                    $fee->set_name( $item_name . ' (x' . $quantity . ')' );
+                    $fee->set_amount( $price * $quantity );
+                    $fee->set_total( $price * $quantity );
+                    $fee->set_tax_status( 'none' );
+                    $order->add_item( $fee );
+                } else {
+                    $order->add_product( $product, $quantity, array(
+                        'subtotal' => $price * $quantity,
+                        'total'    => $price * $quantity,
+                    ) );
                 }
-
-                $item_id = $order->add_product( $product, $quantity, array(
-                    'subtotal' => $price * $quantity,
-                    'total'    => $price * $quantity,
-                ) );
 
                 // Decrement stock
                 if ( $product->get_manage_stock() ) {
@@ -171,8 +179,12 @@ class Wp_Houla_Orders {
                 $order->set_date_paid( $data['paid_at'] );
             }
 
-            // Recalculate totals and set status
+            // Recalculate totals, then force the total from the webhook payload
+            // to ensure it matches the Hou.la order even if some products were not found in WC
             $order->calculate_totals();
+            if ( ! empty( $data['total'] ) ) {
+                $order->set_total( floatval( $data['total'] ) );
+            }
             $order->set_status( 'processing', __( 'Order received via Hou.la Pay.', 'wp-houla' ) );
             $order->save();
 
