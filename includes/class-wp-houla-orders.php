@@ -211,9 +211,16 @@ class Wp_Houla_Orders {
      *
      * Expected $data structure:
      * {
-     *   "houla_order_id": "ord_abc123",
-     *   "reason":         "Customer requested refund"
+     *   "houla_order_id":  "ord_abc123",
+     *   "refund_amount":   10.00,
+     *   "currency":        "EUR",
+     *   "reason":          "Customer requested refund",
+     *   "restock_items":   true,
+     *   "items":           [{ "external_id": "123", "quantity": 1 }]
      * }
+     *
+     * Supports both full and partial refunds. If refund_amount is less than
+     * the order total, a partial WooCommerce refund is created.
      *
      * @param array $data Parsed webhook payload.
      * @return array|WP_Error
@@ -231,13 +238,19 @@ class Wp_Houla_Orders {
         $order  = wc_get_order( $order_id );
         $reason = isset( $data['reason'] ) ? sanitize_text_field( $data['reason'] ) : __( 'Refunded via Hou.la.', 'wp-houla' );
 
+        // Determine refund amount: use webhook value or fall back to order total
+        $refund_amount = isset( $data['refund_amount'] ) ? floatval( $data['refund_amount'] ) : floatval( $order->get_total() );
+
+        // Determine restock: defaults to true if not specified
+        $restock = isset( $data['restock_items'] ) ? (bool) $data['restock_items'] : true;
+
         // Create the refund
         $refund = wc_create_refund( array(
-            'amount'         => $order->get_total(),
+            'amount'         => $refund_amount,
             'reason'         => $reason,
             'order_id'       => $order_id,
             'refund_payment' => false, // Payment was already refunded on Stripe side
-            'restock_items'  => true,
+            'restock_items'  => $restock,
         ) );
 
         if ( is_wp_error( $refund ) ) {
@@ -245,10 +258,19 @@ class Wp_Houla_Orders {
             return $refund;
         }
 
-        $order->set_status( 'refunded', $reason );
+        // Only set status to refunded if full refund (amount >= order total)
+        if ( $refund_amount >= floatval( $order->get_total() ) ) {
+            $order->set_status( 'refunded', $reason );
+        } else {
+            $order->add_order_note( sprintf(
+                /* translators: %s: refund amount */
+                __( 'Partial refund of %s via Hou.la.', 'wp-houla' ),
+                wc_price( $refund_amount )
+            ) );
+        }
         $order->save();
 
-        $this->log( 'Order WC #' . $order_id . ' refunded (Hou.la ' . $data['houla_order_id'] . ').' );
+        $this->log( 'Order WC #' . $order_id . ' refunded ' . $refund_amount . ' ' . ( isset( $data['currency'] ) ? $data['currency'] : '' ) . ' (Hou.la ' . $data['houla_order_id'] . ').' );
 
         return array( 'order_id' => $order_id );
     }
