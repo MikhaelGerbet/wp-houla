@@ -52,7 +52,7 @@ class Wp_Houla_Admin {
      * @param string $hook Current admin page.
      */
     public function enqueue_scripts( $hook ) {
-        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook ) {
+        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook || $this->is_wc_orders_page( $hook ) ) {
             wp_enqueue_script(
                 'wp-houla-admin',
                 WPHOULA_URL . 'admin/js/wp-houla-admin.js',
@@ -655,6 +655,145 @@ class Wp_Houla_Admin {
         ) );
     }
 
+    /**
+     * AJAX: Resync a single order status to Hou.la.
+     */
+    public function ajax_resync_order() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+        if ( ! $order_id ) {
+            wp_send_json_error( __( 'Invalid order ID.', 'wp-houla' ) );
+        }
+
+        $sync   = new Wp_Houla_Sync();
+        $result = $sync->resync_order( $order_id );
+
+        if ( $result['success'] ) {
+            wp_send_json_success( array( 'message' => __( 'Order synced successfully.', 'wp-houla' ) ) );
+        } else {
+            wp_send_json_error( $result['message'] );
+        }
+    }
+
+    /**
+     * AJAX: Batch resync all Hou.la orders.
+     */
+    public function ajax_batch_resync_orders() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $filter = isset( $_POST['filter'] ) ? sanitize_text_field( $_POST['filter'] ) : 'all';
+        if ( ! in_array( $filter, array( 'all', 'failed' ), true ) ) {
+            $filter = 'all';
+        }
+
+        $sync   = new Wp_Houla_Sync();
+        $result = $sync->batch_resync_orders( $filter );
+
+        wp_send_json_success( $result );
+    }
+
+    /**
+     * AJAX: Get Hou.la order counts by sync status.
+     */
+    public function ajax_order_sync_counts() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        $sync   = new Wp_Houla_Sync();
+        $counts = $sync->count_houla_orders();
+
+        wp_send_json_success( $counts );
+    }
+
+    // =====================================================================
+    // WooCommerce orders list column
+    // =====================================================================
+
+    /**
+     * Add Hou.la sync status column to WooCommerce orders list.
+     *
+     * @param array $columns
+     * @return array
+     */
+    public function add_orders_column( $columns ) {
+        if ( ! $this->auth->is_connected() ) {
+            return $columns;
+        }
+
+        // Insert before 'order_actions' column for better placement
+        $new_columns = array();
+        foreach ( $columns as $key => $label ) {
+            if ( $key === 'order_actions' || $key === 'wc_actions' ) {
+                $new_columns['houla_sync'] = 'Hou.la';
+            }
+            $new_columns[ $key ] = $label;
+        }
+
+        // If order_actions was not found, append
+        if ( ! isset( $new_columns['houla_sync'] ) ) {
+            $new_columns['houla_sync'] = 'Hou.la';
+        }
+
+        return $new_columns;
+    }
+
+    /**
+     * Render the Hou.la sync column for WooCommerce orders.
+     *
+     * @param string $column
+     * @param int|WC_Order $order_or_id Order object (HPOS) or post ID (legacy).
+     */
+    public function render_orders_column( $column, $order_or_id = null ) {
+        if ( $column !== 'houla_sync' ) {
+            return;
+        }
+
+        // Handle both HPOS (receives WC_Order) and legacy (receives post_id)
+        if ( $order_or_id instanceof \WC_Order ) {
+            $order = $order_or_id;
+        } elseif ( is_numeric( $order_or_id ) ) {
+            $order = wc_get_order( $order_or_id );
+        } else {
+            global $post;
+            $order = $post ? wc_get_order( $post->ID ) : null;
+        }
+
+        if ( ! $order ) {
+            echo '-';
+            return;
+        }
+
+        $houla_id    = $order->get_meta( '_houla_order_id' );
+        $sync_status = $order->get_meta( '_houla_sync_status' );
+        $sync_error  = $order->get_meta( '_houla_sync_error' );
+
+        if ( empty( $houla_id ) ) {
+            echo '<span style="color:#999;">-</span>';
+            return;
+        }
+
+        $order_id = $order->get_id();
+
+        if ( $sync_status === 'synced' ) {
+            echo '<span style="color:#46b450;" title="' . esc_attr__( 'Synced', 'wp-houla' ) . '">&#10003;</span>';
+        } elseif ( $sync_status === 'failed' ) {
+            echo '<span style="color:#dc3232;" title="' . esc_attr( $sync_error ) . '">&#10007;</span> ';
+            echo '<a href="#" class="wphoula-resync-order" data-order-id="' . esc_attr( $order_id ) . '" title="' . esc_attr__( 'Retry sync', 'wp-houla' ) . '" style="text-decoration:none;">&#8635;</a>';
+        } else {
+            // Pending (has houla_order_id but no sync status yet - old orders)
+            echo '<span style="color:#f0b849;" title="' . esc_attr__( 'Pending sync', 'wp-houla' ) . '">&#9679;</span> ';
+            echo '<a href="#" class="wphoula-resync-order" data-order-id="' . esc_attr( $order_id ) . '" title="' . esc_attr__( 'Sync now', 'wp-houla' ) . '" style="text-decoration:none;">&#8635;</a>';
+        }
+    }
+
     // =====================================================================
     // Dashboard widget
     // =====================================================================
@@ -878,5 +1017,23 @@ class Wp_Houla_Admin {
      */
     private function is_post_edit( $hook ) {
         return in_array( $hook, array( 'post.php', 'post-new.php' ), true );
+    }
+
+    /**
+     * Check if the current admin page is the WooCommerce orders list.
+     *
+     * @param string $hook
+     * @return bool
+     */
+    private function is_wc_orders_page( $hook ) {
+        // HPOS: woocommerce_page_wc-orders
+        if ( $hook === 'woocommerce_page_wc-orders' ) {
+            return true;
+        }
+        // Legacy: edit.php with post_type=shop_order
+        if ( $hook === 'edit.php' && isset( $_GET['post_type'] ) && $_GET['post_type'] === 'shop_order' ) {
+            return true;
+        }
+        return false;
     }
 }

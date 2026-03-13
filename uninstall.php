@@ -63,14 +63,14 @@ $orders_table     = $wpdb->prefix . 'wc_orders';
 if ( $wpdb->get_var( "SHOW TABLES LIKE '{$order_meta_table}'" ) === $order_meta_table ) {
     $wpdb->query(
         "DELETE FROM {$order_meta_table}
-         WHERE meta_key IN ('_houla_order_id', '_houla_transaction_id')"
+         WHERE meta_key IN ('_houla_order_id', '_houla_transaction_id', '_houla_sync_status', '_houla_sync_at', '_houla_sync_error')"
     );
 }
 
 // Legacy post meta orders
 $wpdb->query(
     "DELETE FROM {$wpdb->postmeta}
-     WHERE meta_key IN ('_houla_order_id', '_houla_transaction_id')"
+     WHERE meta_key IN ('_houla_order_id', '_houla_transaction_id', '_houla_sync_status', '_houla_sync_at', '_houla_sync_error')"
 );
 
 // =====================================================================

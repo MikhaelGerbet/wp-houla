@@ -124,6 +124,19 @@ class Wp_Houla {
             $this->loader->add_action( 'wp_ajax_wphoula_reset_sync', $admin, 'ajax_reset_sync' );
             $this->loader->add_action( 'wp_ajax_wphoula_get_product_meta_keys', $admin, 'ajax_get_product_meta_keys' );
 
+            // Order resync AJAX actions
+            $this->loader->add_action( 'wp_ajax_wphoula_resync_order', $admin, 'ajax_resync_order' );
+            $this->loader->add_action( 'wp_ajax_wphoula_batch_resync_orders', $admin, 'ajax_batch_resync_orders' );
+            $this->loader->add_action( 'wp_ajax_wphoula_order_sync_counts', $admin, 'ajax_order_sync_counts' );
+
+            // WooCommerce orders list column (sync status)
+            // HPOS (High-Performance Order Storage) compatible
+            $this->loader->add_filter( 'manage_woocommerce_page_wc-orders_columns', $admin, 'add_orders_column' );
+            $this->loader->add_action( 'manage_woocommerce_page_wc-orders_custom_column', $admin, 'render_orders_column', 10, 2 );
+            // Legacy post-based orders
+            $this->loader->add_filter( 'manage_edit-shop_order_columns', $admin, 'add_orders_column' );
+            $this->loader->add_action( 'manage_shop_order_posts_custom_column', $admin, 'render_orders_column', 10, 2 );
+
             // Metabox on WooCommerce products
             $this->loader->add_action( 'add_meta_boxes', $metabox, 'register_metabox' );
 

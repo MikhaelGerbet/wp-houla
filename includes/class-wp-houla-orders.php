@@ -162,6 +162,8 @@ class Wp_Houla_Orders {
 
             // Store Hou.la metadata
             $order->update_meta_data( '_houla_order_id', sanitize_text_field( $data['houla_order_id'] ) );
+            $order->update_meta_data( '_houla_sync_status', 'synced' );
+            $order->update_meta_data( '_houla_sync_at', current_time( 'mysql' ) );
             if ( ! empty( $data['transaction_id'] ) ) {
                 $order->set_transaction_id( sanitize_text_field( $data['transaction_id'] ) );
                 $order->update_meta_data( '_houla_transaction_id', sanitize_text_field( $data['transaction_id'] ) );

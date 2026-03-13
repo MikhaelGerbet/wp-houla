@@ -558,6 +558,29 @@ $last_order_at   = $options->get( 'last_order_at' );
         </div>
 
         <?php if ( $is_connected ) : ?>
+        <!-- ── Order sync status + resync ── -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Order Synchronization', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Resynchronize order statuses between WooCommerce and Hou.la. Use this if some orders failed to sync or were created before the plugin was connected.', 'wp-houla' ); ?>
+            </p>
+
+            <div id="wphoula-order-sync-counts" style="margin-bottom: 16px;">
+                <span class="spinner is-active" style="float:none;margin:0 8px 0 0;"></span>
+                <?php esc_html_e( 'Loading...', 'wp-houla' ); ?>
+            </div>
+
+            <p>
+                <button type="button" class="button" id="wphoula-resync-failed-orders" style="margin-right: 8px;" disabled>
+                    <?php esc_html_e( 'Retry failed orders', 'wp-houla' ); ?>
+                </button>
+                <button type="button" class="button" id="wphoula-resync-all-orders" disabled>
+                    <?php esc_html_e( 'Resync all orders', 'wp-houla' ); ?>
+                </button>
+            </p>
+            <div id="wphoula-order-resync-status" style="display:none; margin-top: 8px;"></div>
+        </div>
+
         <!-- ── Status concordance table ── -->
         <div class="wphoula-card" style="margin-top: 20px;">
             <h2><?php esc_html_e( 'Status Concordance', 'wp-houla' ); ?></h2>

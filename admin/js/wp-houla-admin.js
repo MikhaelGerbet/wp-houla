@@ -954,4 +954,105 @@
         });
     });
 
+    // =================================================================
+    // Order resync
+    // =================================================================
+
+    // Load order sync counts when on Orders tab
+    function loadOrderSyncCounts() {
+        var $container = $('#wphoula-order-sync-counts');
+        if (!$container.length) return;
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_order_sync_counts',
+            nonce: nonce
+        }, function (resp) {
+            if (!resp.success) {
+                $container.html('<span style="color:#dc3232;">Error loading counts</span>');
+                return;
+            }
+            var d = resp.data;
+            var html = '<table class="widefat" style="max-width:400px;">';
+            html += '<tr><td>' + (i18n.totalOrders || 'Total Hou.la orders') + '</td><td><strong>' + d.total + '</strong></td></tr>';
+            html += '<tr><td>' + (i18n.syncedOrders || 'Synced') + '</td><td><span style="color:#46b450;">&#10003; ' + d.synced + '</span></td></tr>';
+            html += '<tr><td>' + (i18n.failedOrders || 'Failed') + '</td><td><span style="color:' + (d.failed > 0 ? '#dc3232' : '#999') + ';">' + (d.failed > 0 ? '&#10007; ' : '') + d.failed + '</span></td></tr>';
+            html += '<tr><td>' + (i18n.pendingOrders || 'Pending') + '</td><td><span style="color:#f0b849;">' + d.pending + '</span></td></tr>';
+            html += '</table>';
+            $container.html(html);
+
+            // Enable buttons
+            $('#wphoula-resync-all-orders').prop('disabled', d.total === 0);
+            $('#wphoula-resync-failed-orders').prop('disabled', d.failed === 0);
+        });
+    }
+
+    // Load on tab switch
+    $(document).on('click', '.nav-tab[data-tab="orders"]', function () {
+        loadOrderSyncCounts();
+    });
+    // Also load if already on orders tab
+    if ($('#tab-orders').is(':visible')) {
+        loadOrderSyncCounts();
+    }
+
+    // Resync all orders
+    $(document).on('click', '#wphoula-resync-all-orders', function () {
+        resyncOrders($(this), 'all');
+    });
+
+    // Resync failed orders
+    $(document).on('click', '#wphoula-resync-failed-orders', function () {
+        resyncOrders($(this), 'failed');
+    });
+
+    function resyncOrders($btn, filter) {
+        var $status = $('#wphoula-order-resync-status');
+        $btn.prop('disabled', true);
+        $status.show().text(i18n.syncing || 'Syncing...').css('color', '#666');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_batch_resync_orders',
+            nonce: nonce,
+            filter: filter
+        }, function (resp) {
+            $btn.prop('disabled', false);
+            if (resp.success) {
+                var d = resp.data;
+                var msg = d.synced + ' synced';
+                if (d.failed > 0) msg += ', ' + d.failed + ' failed';
+                if (d.skipped > 0) msg += ', ' + d.skipped + ' skipped';
+                $status.text(msg).css('color', d.failed > 0 ? '#f0b849' : '#46b450');
+                loadOrderSyncCounts(); // Refresh counts
+            } else {
+                $status.text(resp.data || 'Error').css('color', '#dc3232');
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false);
+            $status.text('Network error').css('color', '#dc3232');
+        });
+    }
+
+    // Individual order resync (in WC orders list)
+    $(document).on('click', '.wphoula-resync-order', function (e) {
+        e.preventDefault();
+        var $link = $(this);
+        var orderId = $link.data('order-id');
+        $link.text('...').css('pointer-events', 'none');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_resync_order',
+            nonce: nonce,
+            order_id: orderId
+        }, function (resp) {
+            if (resp.success) {
+                $link.closest('td').find('span').first().replaceWith('<span style="color:#46b450;" title="Synced">&#10003;</span>');
+                $link.remove();
+            } else {
+                $link.text('\u21BB').css({ 'pointer-events': 'auto', 'color': '#dc3232' });
+            }
+        }).fail(function () {
+            $link.text('\u21BB').css({ 'pointer-events': 'auto', 'color': '#dc3232' });
+        });
+    });
+
 })(jQuery);

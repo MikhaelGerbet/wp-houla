@@ -829,10 +829,163 @@ class Wp_Houla_Sync {
         );
 
         if ( is_wp_error( $result ) ) {
+            $order->update_meta_data( '_houla_sync_status', 'failed' );
+            $order->update_meta_data( '_houla_sync_error', $result->get_error_message() );
+            $order->save();
             $this->log( 'Order #' . $order_id . ' status sync failed: ' . $result->get_error_message() );
         } else {
+            $order->update_meta_data( '_houla_sync_status', 'synced' );
+            $order->update_meta_data( '_houla_sync_at', current_time( 'mysql' ) );
+            $order->delete_meta_data( '_houla_sync_error' );
+            $order->save();
             $this->log( 'Order #' . $order_id . ' status synced to Hou.la: ' . $new_status . ' → ' . $houla_status . '.' );
         }
+    }
+
+    /**
+     * Manually resync a single order status to Hou.la.
+     *
+     * @param int $order_id WooCommerce order ID.
+     * @return array { success: bool, message: string }
+     */
+    public function resync_order( $order_id ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) {
+            return array( 'success' => false, 'message' => 'Order not found' );
+        }
+
+        $houla_order_id = $order->get_meta( '_houla_order_id' );
+        if ( empty( $houla_order_id ) ) {
+            return array( 'success' => false, 'message' => 'Not a Hou.la order' );
+        }
+
+        $wc_status    = $order->get_status();
+        $wc_to_houla  = $this->get_wc_to_houla_map();
+        $houla_status = isset( $wc_to_houla[ $wc_status ] ) ? $wc_to_houla[ $wc_status ] : null;
+
+        if ( ! $houla_status ) {
+            return array( 'success' => false, 'message' => 'No mapping for status "' . $wc_status . '"' );
+        }
+
+        $payload = array( 'wc_status' => $wc_status );
+
+        if ( $this->options->get( 'sync_tracking' ) ) {
+            $tracking = $this->extract_tracking_info( $order );
+            if ( $tracking ) {
+                $payload['carrier']         = $tracking['carrier'];
+                $payload['tracking_number'] = $tracking['tracking_number'];
+                if ( ! empty( $tracking['tracking_url'] ) ) {
+                    $payload['tracking_url'] = $tracking['tracking_url'];
+                }
+            }
+        }
+
+        $result = $this->api->patch(
+            '/ecommerce/orders/' . $houla_order_id . '/status',
+            $payload
+        );
+
+        if ( is_wp_error( $result ) ) {
+            $order->update_meta_data( '_houla_sync_status', 'failed' );
+            $order->update_meta_data( '_houla_sync_error', $result->get_error_message() );
+            $order->save();
+            return array( 'success' => false, 'message' => $result->get_error_message() );
+        }
+
+        $order->update_meta_data( '_houla_sync_status', 'synced' );
+        $order->update_meta_data( '_houla_sync_at', current_time( 'mysql' ) );
+        $order->delete_meta_data( '_houla_sync_error' );
+        $order->save();
+        return array( 'success' => true, 'message' => 'Synced' );
+    }
+
+    /**
+     * Batch resync all Hou.la orders back to the API.
+     * Re-pushes the current WC status for each order that has a _houla_order_id.
+     *
+     * @param string $filter 'all' | 'failed' - which orders to resync.
+     * @return array { synced: int, failed: int, skipped: int, total: int }
+     */
+    public function batch_resync_orders( $filter = 'all' ) {
+        if ( ! $this->auth->is_connected() ) {
+            return array( 'synced' => 0, 'failed' => 0, 'skipped' => 0, 'total' => 0, 'message' => 'Not connected' );
+        }
+
+        $args = array(
+            'limit'    => -1,
+            'meta_key' => '_houla_order_id',
+            'return'   => 'ids',
+        );
+
+        if ( $filter === 'failed' ) {
+            $args['meta_query'] = array(
+                array(
+                    'key'   => '_houla_sync_status',
+                    'value' => 'failed',
+                ),
+            );
+        }
+
+        $order_ids = wc_get_orders( $args );
+        $synced  = 0;
+        $failed  = 0;
+        $skipped = 0;
+
+        foreach ( $order_ids as $oid ) {
+            $res = $this->resync_order( $oid );
+            if ( $res['success'] ) {
+                $synced++;
+            } elseif ( $res['message'] === 'No mapping for status "' . wc_get_order( $oid )->get_status() . '"' ) {
+                $skipped++;
+            } else {
+                $failed++;
+            }
+        }
+
+        return array(
+            'synced'  => $synced,
+            'failed'  => $failed,
+            'skipped' => $skipped,
+            'total'   => count( $order_ids ),
+        );
+    }
+
+    /**
+     * Count Hou.la orders by sync status.
+     *
+     * @return array { total: int, synced: int, failed: int, pending: int }
+     */
+    public function count_houla_orders() {
+        $total = count( wc_get_orders( array(
+            'limit'    => -1,
+            'meta_key' => '_houla_order_id',
+            'return'   => 'ids',
+        ) ) );
+
+        $synced = count( wc_get_orders( array(
+            'limit'    => -1,
+            'meta_key' => '_houla_order_id',
+            'return'   => 'ids',
+            'meta_query' => array(
+                array( 'key' => '_houla_sync_status', 'value' => 'synced' ),
+            ),
+        ) ) );
+
+        $failed = count( wc_get_orders( array(
+            'limit'    => -1,
+            'meta_key' => '_houla_order_id',
+            'return'   => 'ids',
+            'meta_query' => array(
+                array( 'key' => '_houla_sync_status', 'value' => 'failed' ),
+            ),
+        ) ) );
+
+        return array(
+            'total'   => $total,
+            'synced'  => $synced,
+            'failed'  => $failed,
+            'pending' => $total - $synced - $failed,
+        );
     }
 
     // =====================================================================
