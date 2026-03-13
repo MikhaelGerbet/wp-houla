@@ -1,0 +1,35 @@
+services:
+  test-php74:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PHP_VERSION: "7.4"
+
+  test-php80:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PHP_VERSION: "8.0"
+
+  test-php81:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PHP_VERSION: "8.1"
+
+  test-php82:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PHP_VERSION: "8.2"
+
+  test-php83:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PHP_VERSION: "8.3"

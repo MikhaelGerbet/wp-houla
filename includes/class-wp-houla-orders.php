@@ -112,7 +112,7 @@ class Wp_Houla_Orders {
                 }
 
                 // Decrement stock
-                if ( $product->get_manage_stock() ) {
+                if ( $product && $product->get_manage_stock() ) {
                     wc_update_product_stock( $product, $quantity, 'decrease' );
                 }
             }

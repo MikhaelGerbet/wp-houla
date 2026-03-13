@@ -108,6 +108,28 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
     }
 }
 
+if ( ! class_exists( 'WC_Order_Item_Fee' ) ) {
+    /**
+     * Minimal WooCommerce WC_Order_Item_Fee mock for tests.
+     */
+    class WC_Order_Item_Fee {
+        private $name       = '';
+        private $amount     = 0;
+        private $total      = 0;
+        private $tax_status = 'taxable';
+
+        public function set_name( $name ) { $this->name = $name; }
+        public function set_amount( $amount ) { $this->amount = $amount; }
+        public function set_total( $total ) { $this->total = $total; }
+        public function set_tax_status( $status ) { $this->tax_status = $status; }
+
+        public function get_name() { return $this->name; }
+        public function get_amount() { return $this->amount; }
+        public function get_total() { return $this->total; }
+        public function get_tax_status() { return $this->tax_status; }
+    }
+}
+
 if ( ! class_exists( 'WC_Order_Item_Shipping' ) ) {
     /**
      * Minimal WooCommerce WC_Order_Item_Shipping mock for tests.

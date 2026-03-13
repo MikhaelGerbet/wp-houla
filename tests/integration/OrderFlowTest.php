@@ -187,8 +187,11 @@ class OrderFlowTest extends TestCase {
         ) );
 
         $this->assertIsArray( $result );
-        // Order was created but with no line items.
-        $this->assertEmpty( $mockOrder->get_items() );
+        // Product not found → added as a custom WC_Order_Item_Fee fallback.
+        $items = $mockOrder->get_items();
+        $this->assertCount( 1, $items );
+        $this->assertInstanceOf( \WC_Order_Item_Fee::class, $items[0] );
+        $this->assertEquals( 10, $items[0]->get_total() );
     }
 
     public function test_create_order_with_shipping(): void {

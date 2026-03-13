@@ -1,0 +1,22 @@
+ARG PHP_VERSION=8.2
+FROM php:${PHP_VERSION}-cli-alpine
+
+# Install system dependencies
+RUN apk add --no-cache git unzip
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /app
+
+# Copy composer files first for layer caching
+COPY composer.json composer.lock* ./
+
+# Install dependencies
+RUN composer install --prefer-dist --no-progress --no-interaction
+
+# Copy project files
+COPY . .
+
+# Default command: run all tests
+CMD ["vendor/bin/phpunit", "--no-coverage", "--colors=always"]

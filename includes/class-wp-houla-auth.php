@@ -401,11 +401,17 @@ class Wp_Houla_Auth {
     private function register_webhook_on_houla() {
         $api = new Wp_Houla_Api();
 
-        $api->post( '/ecommerce/webhooks/register', array(
+        $result = $api->post( '/ecommerce/webhooks/register', array(
             'callbackUrl' => rest_url( 'wp-houla/v1/webhook' ),
             'events'      => array( 'order.paid', 'order.refunded' ),
             'secret'      => $this->options->get( 'webhook_secret' ),
         ) );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Webhook registration failed: ' . $result->get_error_message() );
+        } else {
+            $this->log( 'Webhook registered successfully' );
+        }
     }
 
     /**
