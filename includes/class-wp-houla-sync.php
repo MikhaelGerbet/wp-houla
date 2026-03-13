@@ -911,26 +911,41 @@ class Wp_Houla_Sync {
             return array( 'synced' => 0, 'failed' => 0, 'skipped' => 0, 'total' => 0, 'message' => 'Not connected' );
         }
 
-        $meta_query = array(
-            array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
-        );
+        global $wpdb;
 
-        if ( $filter === 'failed' ) {
-            $meta_query['relation'] = 'AND';
-            $meta_query[] = array(
-                'key'   => '_houla_sync_status',
-                'value' => 'failed',
-            );
+        // Determine storage: HPOS uses wc_orders_meta, legacy uses postmeta
+        $hpos = class_exists( 'Automattic\\WooCommerce\\Utilities\\OrderUtil' )
+             && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+
+        if ( $hpos ) {
+            $meta_table = $wpdb->prefix . 'wc_orders_meta';
+            $id_col     = 'order_id';
+        } else {
+            $meta_table = $wpdb->postmeta;
+            $id_col     = 'post_id';
         }
 
-        $order_ids = wc_get_orders( array(
-            'limit'      => -1,
-            'return'     => 'ids',
-            'meta_query' => $meta_query,
-        ) );
+        if ( $filter === 'failed' ) {
+            // Orders that have _houla_order_id AND _houla_sync_status = 'failed'
+            $order_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT DISTINCT m1.{$id_col}
+                 FROM {$meta_table} m1
+                 INNER JOIN {$meta_table} m2 ON m1.{$id_col} = m2.{$id_col}
+                 WHERE m1.meta_key = %s AND m2.meta_key = %s AND m2.meta_value = %s",
+                '_houla_order_id', '_houla_sync_status', 'failed'
+            ) );
+        } else {
+            // All orders with _houla_order_id
+            $order_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT DISTINCT {$id_col} FROM {$meta_table} WHERE meta_key = %s",
+                '_houla_order_id'
+            ) );
+        }
+
         if ( ! is_array( $order_ids ) ) {
             $order_ids = array();
         }
+        $order_ids = array_map( 'absint', $order_ids );
         $synced  = 0;
         $failed  = 0;
         $skipped = 0;
@@ -960,42 +975,43 @@ class Wp_Houla_Sync {
      * @return array { total: int, synced: int, failed: int, pending: int }
      */
     public function count_houla_orders() {
-        $total = wc_get_orders( array(
-            'limit'      => -1,
-            'return'     => 'ids',
-            'meta_query' => array(
-                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
-            ),
-        ) );
-        $total = is_array( $total ) ? count( $total ) : 0;
+        global $wpdb;
 
-        $synced = wc_get_orders( array(
-            'limit'      => -1,
-            'return'     => 'ids',
-            'meta_query' => array(
-                'relation' => 'AND',
-                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
-                array( 'key' => '_houla_sync_status', 'value' => 'synced' ),
-            ),
-        ) );
-        $synced = is_array( $synced ) ? count( $synced ) : 0;
+        // Determine storage: HPOS uses wc_orders_meta, legacy uses postmeta
+        $hpos = class_exists( 'Automattic\\WooCommerce\\Utilities\\OrderUtil' )
+             && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
 
-        $failed = wc_get_orders( array(
-            'limit'      => -1,
-            'return'     => 'ids',
-            'meta_query' => array(
-                'relation' => 'AND',
-                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
-                array( 'key' => '_houla_sync_status', 'value' => 'failed' ),
-            ),
+        if ( $hpos ) {
+            $meta_table = $wpdb->prefix . 'wc_orders_meta';
+            $id_col     = 'order_id';
+        } else {
+            $meta_table = $wpdb->postmeta;
+            $id_col     = 'post_id';
+        }
+
+        // Total orders with _houla_order_id
+        $total = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s",
+            '_houla_order_id'
         ) );
-        $failed = is_array( $failed ) ? count( $failed ) : 0;
+
+        // Synced orders
+        $synced = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s AND meta_value = %s",
+            '_houla_sync_status', 'synced'
+        ) );
+
+        // Failed orders
+        $failed = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s AND meta_value = %s",
+            '_houla_sync_status', 'failed'
+        ) );
 
         return array(
             'total'   => $total,
             'synced'  => $synced,
             'failed'  => $failed,
-            'pending' => $total - $synced - $failed,
+            'pending' => max( 0, $total - $synced - $failed ),
         );
     }
 

@@ -33,7 +33,7 @@ if ( ! defined( 'WPINC' ) ) {
 // Constants
 // =========================================================================
 
-define( 'WPHOULA_VERSION', '1.4.1' );
+define( 'WPHOULA_VERSION', '1.4.2' );
 define( 'WPHOULA_DIR', WP_PLUGIN_DIR . '/' . basename( dirname( __FILE__ ) ) );
 define( 'WPHOULA_URL', plugins_url( '/', __FILE__ ) );
 define( 'WPHOULA_BASENAME', plugin_basename( __FILE__ ) );
