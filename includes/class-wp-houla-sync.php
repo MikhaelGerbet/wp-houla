@@ -918,11 +918,17 @@ class Wp_Houla_Sync {
              && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
 
         if ( $hpos ) {
-            $meta_table = $wpdb->prefix . 'wc_orders_meta';
-            $id_col     = 'order_id';
+            $meta_table  = $wpdb->prefix . 'wc_orders_meta';
+            $order_table = $wpdb->prefix . 'wc_orders';
+            $id_col      = 'order_id';
+            $order_id_fk = 'o.id';
+            $status_cond = "AND o.status NOT IN ('trash','auto-draft')";
         } else {
-            $meta_table = $wpdb->postmeta;
-            $id_col     = 'post_id';
+            $meta_table  = $wpdb->postmeta;
+            $order_table = $wpdb->posts;
+            $id_col      = 'post_id';
+            $order_id_fk = 'o.ID';
+            $status_cond = "AND o.post_status NOT IN ('trash','auto-draft')";
         }
 
         if ( $filter === 'failed' ) {
@@ -931,13 +937,17 @@ class Wp_Houla_Sync {
                 "SELECT DISTINCT m1.{$id_col}
                  FROM {$meta_table} m1
                  INNER JOIN {$meta_table} m2 ON m1.{$id_col} = m2.{$id_col}
-                 WHERE m1.meta_key = %s AND m2.meta_key = %s AND m2.meta_value = %s",
+                 INNER JOIN {$order_table} o ON m1.{$id_col} = {$order_id_fk}
+                 WHERE m1.meta_key = %s AND m2.meta_key = %s AND m2.meta_value = %s {$status_cond}",
                 '_houla_order_id', '_houla_sync_status', 'failed'
             ) );
         } else {
             // All orders with _houla_order_id
             $order_ids = $wpdb->get_col( $wpdb->prepare(
-                "SELECT DISTINCT {$id_col} FROM {$meta_table} WHERE meta_key = %s",
+                "SELECT DISTINCT m.{$id_col}
+                 FROM {$meta_table} m
+                 INNER JOIN {$order_table} o ON m.{$id_col} = {$order_id_fk}
+                 WHERE m.meta_key = %s {$status_cond}",
                 '_houla_order_id'
             ) );
         }
@@ -982,28 +992,34 @@ class Wp_Houla_Sync {
              && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
 
         if ( $hpos ) {
-            $meta_table = $wpdb->prefix . 'wc_orders_meta';
-            $id_col     = 'order_id';
+            $meta_table  = $wpdb->prefix . 'wc_orders_meta';
+            $order_table = $wpdb->prefix . 'wc_orders';
+            $id_col      = 'order_id';
+            $status_join = "INNER JOIN {$order_table} o ON m.{$id_col} = o.id";
+            $status_cond = "AND o.status NOT IN ('trash','auto-draft')";
         } else {
-            $meta_table = $wpdb->postmeta;
-            $id_col     = 'post_id';
+            $meta_table  = $wpdb->postmeta;
+            $order_table = $wpdb->posts;
+            $id_col      = 'post_id';
+            $status_join = "INNER JOIN {$order_table} o ON m.{$id_col} = o.ID";
+            $status_cond = "AND o.post_status NOT IN ('trash','auto-draft')";
         }
 
-        // Total orders with _houla_order_id
+        // Total orders with _houla_order_id (excluding trashed)
         $total = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s",
+            "SELECT COUNT(DISTINCT m.{$id_col}) FROM {$meta_table} m {$status_join} WHERE m.meta_key = %s {$status_cond}",
             '_houla_order_id'
         ) );
 
         // Synced orders
         $synced = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s AND meta_value = %s",
+            "SELECT COUNT(DISTINCT m.{$id_col}) FROM {$meta_table} m {$status_join} WHERE m.meta_key = %s AND m.meta_value = %s {$status_cond}",
             '_houla_sync_status', 'synced'
         ) );
 
         // Failed orders
         $failed = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(DISTINCT {$id_col}) FROM {$meta_table} WHERE meta_key = %s AND meta_value = %s",
+            "SELECT COUNT(DISTINCT m.{$id_col}) FROM {$meta_table} m {$status_join} WHERE m.meta_key = %s AND m.meta_value = %s {$status_cond}",
             '_houla_sync_status', 'failed'
         ) );
 
