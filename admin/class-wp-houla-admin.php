@@ -84,6 +84,10 @@ class Wp_Houla_Admin {
                     'shopNotActive'       => __( 'Your Hou.la shop is not activated. Please connect Stripe on Hou.la first.', 'wp-houla' ),
                     'confirmResetSync'    => __( 'This will clear all sync metadata. You will need to re-sync all products. Continue?', 'wp-houla' ),
                     'resetSync'           => __( 'Reset Sync Data', 'wp-houla' ),
+                    'totalOrders'         => __( 'Total Hou.la orders', 'wp-houla' ),
+                    'syncedOrders'        => __( 'Synced', 'wp-houla' ),
+                    'failedOrders'        => __( 'Failed', 'wp-houla' ),
+                    'pendingOrders'       => __( 'Pending', 'wp-houla' ),
                 ),
             ) );
         }
@@ -707,10 +711,13 @@ class Wp_Houla_Admin {
     public function ajax_order_sync_counts() {
         check_ajax_referer( 'wphoula_admin', 'nonce' );
 
-        $sync   = new Wp_Houla_Sync();
-        $counts = $sync->count_houla_orders();
-
-        wp_send_json_success( $counts );
+        try {
+            $sync   = new Wp_Houla_Sync();
+            $counts = $sync->count_houla_orders();
+            wp_send_json_success( $counts );
+        } catch ( \Throwable $e ) {
+            wp_send_json_error( 'Error: ' . $e->getMessage() );
+        }
     }
 
     // =====================================================================

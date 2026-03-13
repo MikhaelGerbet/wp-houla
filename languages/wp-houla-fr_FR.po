@@ -851,3 +851,48 @@ msgstr "Filtre par categorie"
 #: admin/partials/settings-page.php
 msgid "No WooCommerce categories found."
 msgstr "Aucune categorie WooCommerce trouvee."
+
+# Order Synchronization (settings-page.php + admin class i18n)
+#: admin/partials/settings-page.php
+msgid "Order Synchronization"
+msgstr "Synchronisation des commandes"
+
+#: admin/partials/settings-page.php
+msgid "Resynchronize order statuses between WooCommerce and Hou.la. Use this if some orders failed to sync or were created before the plugin was connected."
+msgstr "Resynchronisez les statuts de commande entre WooCommerce et Hou.la. Utilisez ceci si certaines commandes n'ont pas pu etre synchronisees ou ont ete creees avant la connexion du plugin."
+
+#: admin/partials/settings-page.php
+msgid "Retry failed orders"
+msgstr "Relancer les commandes echouees"
+
+#: admin/partials/settings-page.php
+msgid "Resync all orders"
+msgstr "Resynchroniser toutes les commandes"
+
+#: admin/class-wp-houla-admin.php
+msgid "Total Hou.la orders"
+msgstr "Total commandes Hou.la"
+
+#: admin/class-wp-houla-admin.php
+msgid "Permission denied."
+msgstr "Permission refusee."
+
+#: admin/class-wp-houla-admin.php
+msgid "Invalid order ID."
+msgstr "ID de commande invalide."
+
+#: admin/class-wp-houla-admin.php
+msgid "Order synced successfully."
+msgstr "Commande synchronisee avec succes."
+
+#: admin/class-wp-houla-admin.php
+msgid "Retry sync"
+msgstr "Relancer la synchronisation"
+
+#: admin/class-wp-houla-admin.php
+msgid "Pending sync"
+msgstr "Synchronisation en attente"
+
+#: admin/class-wp-houla-admin.php
+msgid "Sync now"
+msgstr "Synchroniser maintenant"

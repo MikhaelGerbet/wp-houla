@@ -911,22 +911,26 @@ class Wp_Houla_Sync {
             return array( 'synced' => 0, 'failed' => 0, 'skipped' => 0, 'total' => 0, 'message' => 'Not connected' );
         }
 
-        $args = array(
-            'limit'    => -1,
-            'meta_key' => '_houla_order_id',
-            'return'   => 'ids',
+        $meta_query = array(
+            array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
         );
 
         if ( $filter === 'failed' ) {
-            $args['meta_query'] = array(
-                array(
-                    'key'   => '_houla_sync_status',
-                    'value' => 'failed',
-                ),
+            $meta_query['relation'] = 'AND';
+            $meta_query[] = array(
+                'key'   => '_houla_sync_status',
+                'value' => 'failed',
             );
         }
 
-        $order_ids = wc_get_orders( $args );
+        $order_ids = wc_get_orders( array(
+            'limit'      => -1,
+            'return'     => 'ids',
+            'meta_query' => $meta_query,
+        ) );
+        if ( ! is_array( $order_ids ) ) {
+            $order_ids = array();
+        }
         $synced  = 0;
         $failed  = 0;
         $skipped = 0;
@@ -956,29 +960,36 @@ class Wp_Houla_Sync {
      * @return array { total: int, synced: int, failed: int, pending: int }
      */
     public function count_houla_orders() {
-        $total = count( wc_get_orders( array(
-            'limit'    => -1,
-            'meta_key' => '_houla_order_id',
-            'return'   => 'ids',
-        ) ) );
-
-        $synced = count( wc_get_orders( array(
-            'limit'    => -1,
-            'meta_key' => '_houla_order_id',
-            'return'   => 'ids',
+        $total = wc_get_orders( array(
+            'limit'      => -1,
+            'return'     => 'ids',
             'meta_query' => array(
+                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
+            ),
+        ) );
+        $total = is_array( $total ) ? count( $total ) : 0;
+
+        $synced = wc_get_orders( array(
+            'limit'      => -1,
+            'return'     => 'ids',
+            'meta_query' => array(
+                'relation' => 'AND',
+                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
                 array( 'key' => '_houla_sync_status', 'value' => 'synced' ),
             ),
-        ) ) );
+        ) );
+        $synced = is_array( $synced ) ? count( $synced ) : 0;
 
-        $failed = count( wc_get_orders( array(
-            'limit'    => -1,
-            'meta_key' => '_houla_order_id',
-            'return'   => 'ids',
+        $failed = wc_get_orders( array(
+            'limit'      => -1,
+            'return'     => 'ids',
             'meta_query' => array(
+                'relation' => 'AND',
+                array( 'key' => '_houla_order_id', 'compare' => 'EXISTS' ),
                 array( 'key' => '_houla_sync_status', 'value' => 'failed' ),
             ),
-        ) ) );
+        ) );
+        $failed = is_array( $failed ) ? count( $failed ) : 0;
 
         return array(
             'total'   => $total,

@@ -41,6 +41,11 @@
         // Show corresponding content
         $('.wphoula-tab-content').hide();
         $('#tab-' + tab).show();
+
+        // Load order sync counts when orders tab is activated
+        if (tab === 'orders' && !orderSyncLoaded) {
+            loadOrderSyncCounts();
+        }
     });
 
     // =================================================================
@@ -958,8 +963,11 @@
     // Order resync
     // =================================================================
 
+    var orderSyncLoaded = false;
+
     // Load order sync counts when on Orders tab
     function loadOrderSyncCounts() {
+        orderSyncLoaded = true;
         var $container = $('#wphoula-order-sync-counts');
         if (!$container.length) return;
 
@@ -968,7 +976,7 @@
             nonce: nonce
         }, function (resp) {
             if (!resp.success) {
-                $container.html('<span style="color:#dc3232;">Error loading counts</span>');
+                $container.html('<span style="color:#dc3232;">' + (resp.data || 'Error loading counts') + '</span>');
                 return;
             }
             var d = resp.data;
@@ -983,17 +991,18 @@
             // Enable buttons
             $('#wphoula-resync-all-orders').prop('disabled', d.total === 0);
             $('#wphoula-resync-failed-orders').prop('disabled', d.failed === 0);
+        }).fail(function (xhr) {
+            console.error('wp-houla: order sync counts failed', xhr.status, xhr.responseText);
+            $container.html('<span style="color:#dc3232;">Error loading counts (HTTP ' + xhr.status + ')</span>');
         });
     }
 
-    // Load on tab switch
-    $(document).on('click', '.nav-tab[data-tab="orders"]', function () {
-        loadOrderSyncCounts();
+    // Load when orders tab is activated (integrated into main tab handler)
+    $(document).ready(function () {
+        if ($('.wphoula-tabs .nav-tab[data-tab="orders"]').hasClass('nav-tab-active')) {
+            loadOrderSyncCounts();
+        }
     });
-    // Also load if already on orders tab
-    if ($('#tab-orders').is(':visible')) {
-        loadOrderSyncCounts();
-    }
 
     // Resync all orders
     $(document).on('click', '#wphoula-resync-all-orders', function () {
