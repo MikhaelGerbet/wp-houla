@@ -592,6 +592,7 @@ $last_order_at   = $options->get( 'last_order_at' );
             // Hou.la statuses available as dropdown options
             $houla_statuses = array(
                 'pending'    => __( 'Pending', 'wp-houla' ),
+                'open_cart'  => __( 'Open Cart', 'wp-houla' ),
                 'paid'       => __( 'Paid', 'wp-houla' ),
                 'processing' => __( 'Processing', 'wp-houla' ),
                 'shipped'    => __( 'Shipped', 'wp-houla' ),
@@ -609,6 +610,7 @@ $last_order_at   = $options->get( 'last_order_at' );
                 // Default mapping
                 $status_map = array(
                     'wc-on-hold'    => 'pending',
+                    'wc-open-cart'  => 'open_cart',
                     'wc-processing' => 'processing',
                     'wc-completed'  => 'delivered',
                     'wc-cancelled'  => 'cancelled',

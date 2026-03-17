@@ -186,6 +186,10 @@ class Wp_Houla {
     private function define_woocommerce_hooks() {
         $sync = new Wp_Houla_Sync();
 
+        // Register custom WooCommerce order statuses
+        $this->loader->add_action( 'init', $sync, 'register_custom_order_statuses' );
+        $this->loader->add_filter( 'wc_order_statuses', $sync, 'add_custom_order_statuses' );
+
         // Product lifecycle
         $this->loader->add_action( 'woocommerce_new_product', $sync, 'on_product_created', 20, 2 );
         $this->loader->add_action( 'woocommerce_update_product', $sync, 'on_product_updated', 20, 2 );

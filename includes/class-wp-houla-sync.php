@@ -39,6 +39,41 @@ class Wp_Houla_Sync {
     }
 
     // =====================================================================
+    // Custom WooCommerce order statuses
+    // =====================================================================
+
+    /**
+     * Register the custom 'wc-open-cart' order status in WooCommerce.
+     * Called via 'init' hook.
+     */
+    public function register_custom_order_statuses() {
+        register_post_status( 'wc-open-cart', array(
+            'label'                     => _x( 'Panier ouvert', 'Order status', 'wp-houla' ),
+            'public'                    => true,
+            'exclude_from_search'       => false,
+            'show_in_admin_all_list'    => true,
+            'show_in_admin_status_list' => true,
+            /* translators: %s: number of orders */
+            'label_count'               => _n_noop(
+                'Panier ouvert <span class="count">(%s)</span>',
+                'Panier ouvert <span class="count">(%s)</span>',
+                'wp-houla'
+            ),
+        ) );
+    }
+
+    /**
+     * Add custom statuses to WooCommerce order statuses dropdown.
+     *
+     * @param array $statuses Existing statuses.
+     * @return array Modified statuses.
+     */
+    public function add_custom_order_statuses( $statuses ) {
+        $statuses['wc-open-cart'] = _x( 'Panier ouvert', 'Order status', 'wp-houla' );
+        return $statuses;
+    }
+
+    // =====================================================================
     // Hook callbacks (called from class-wp-houla.php)
     // =====================================================================
 
@@ -611,6 +646,7 @@ class Wp_Houla_Sync {
      */
     private static $default_wc_to_houla = array(
         'on-hold'    => 'pending',
+        'open-cart'  => 'open_cart',
         'processing' => 'processing',
         'completed'  => 'delivered',
         'cancelled'  => 'cancelled',
