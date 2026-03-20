@@ -304,7 +304,7 @@ class Wp_Houla_Admin {
         // Order status concordance map (wc_slug => houla_status)
         $order_status_map = array();
         if ( isset( $_POST['order_status_map'] ) && is_array( $_POST['order_status_map'] ) ) {
-            $valid_houla = array( 'pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded' );
+            $valid_houla = array( 'pending', 'open_cart', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded' );
             foreach ( $_POST['order_status_map'] as $wc_slug => $houla_status ) {
                 $wc_slug      = sanitize_text_field( $wc_slug );
                 $houla_status = sanitize_key( $houla_status );

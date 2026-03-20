@@ -287,6 +287,7 @@ class Wp_Houla_Orders {
      */
     private static $default_houla_to_wc = array(
         'pending'    => 'on-hold',
+        'open_cart'  => 'open-cart',
         'paid'       => 'processing',
         'processing' => 'processing',
         'shipped'    => 'completed',
