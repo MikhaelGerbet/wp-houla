@@ -651,6 +651,8 @@ class Wp_Houla_Sync {
         'completed'  => 'delivered',
         'cancelled'  => 'cancelled',
         'refunded'   => 'refunded',
+        'trash'      => 'cancelled',
+        'deleted'    => 'cancelled',
     );
 
     /**
