@@ -85,10 +85,17 @@ function wphoula_get_api_url() {
 /**
  * Get the OAuth authorize URL (dynamic, respects dev mode).
  *
+ * This URL is opened in the user's browser, so in dev mode we replace
+ * host.docker.internal with localhost (the browser runs on the host, not in Docker).
+ *
  * @return string
  */
 function wphoula_get_oauth_url() {
-    return wphoula_get_api_url() . '/oauth/authorize';
+    $base = wphoula_get_api_url();
+    if ( wphoula_is_dev_mode() ) {
+        $base = str_replace( 'host.docker.internal', 'localhost', $base );
+    }
+    return $base . '/oauth/authorize';
 }
 
 /**
