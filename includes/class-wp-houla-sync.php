@@ -317,7 +317,22 @@ class Wp_Houla_Sync {
 
             if ( is_wp_error( $result ) ) {
                 $errors++;
-                $this->log( 'Batch sync page error for product #' . $product_id . ': ' . $result->get_error_message() );
+                $error_msg = $result->get_error_message();
+                $this->log( 'Batch sync page error for product #' . $product_id . ': ' . $error_msg );
+
+                // Connection-level error: stop immediately, remaining products will fail the same way
+                if ( $this->is_connection_error( $result ) ) {
+                    $this->log( 'Connection error detected, aborting sync.' );
+                    return array(
+                        'synced'           => $synced,
+                        'errors'           => $errors,
+                        'page'             => $page,
+                        'has_more'         => false,
+                        'connection_error' => true,
+                        'error_message'    => $error_msg,
+                    );
+                }
+
                 continue;
             }
 
@@ -1086,6 +1101,25 @@ class Wp_Houla_Sync {
     // =====================================================================
     // Utilities
     // =====================================================================
+
+    /**
+     * Check if a WP_Error represents a connection-level failure
+     * (server unreachable, DNS failure, timeout, SSL error).
+     *
+     * @param WP_Error $wp_error
+     * @return bool
+     */
+    private function is_connection_error( $wp_error ) {
+        $message = $wp_error->get_error_message();
+
+        return (
+            false !== strpos( $message, 'cURL error 6' )  || // Could not resolve host
+            false !== strpos( $message, 'cURL error 7' )  || // Could not connect
+            false !== strpos( $message, 'cURL error 28' ) || // Connection timed out
+            false !== strpos( $message, 'cURL error 35' ) || // SSL connect error
+            false !== strpos( $message, 'cURL error 56' )    // Recv failure / connection reset
+        );
+    }
 
     /**
      * Can we sync? Checks auth + auto_sync option.

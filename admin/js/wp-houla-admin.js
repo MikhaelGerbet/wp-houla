@@ -419,6 +419,19 @@
                     }
 
                     var d = resp.data;
+
+                    // Connection error — API unreachable, stop immediately
+                    if (d.connection_error) {
+                        $fill.css('width', '100%').removeClass('wphoula-progress-fill--done').css('background', '#d63638');
+                        $text.html(
+                            '<strong style="color:#d63638;">\u26A0 Impossible de contacter le serveur Hou.la</strong><br>' +
+                            'V\u00E9rifiez que votre connexion internet fonctionne et que le service Hou.la est disponible.' +
+                            (d.error_message ? '<br><small style="color:#888;">' + escapeHtml(d.error_message) + '</small>' : '')
+                        );
+                        $btn.prop('disabled', false);
+                        return;
+                    }
+
                     totalSynced += d.synced;
                     totalErrors += d.errors;
 
@@ -448,6 +461,9 @@
                         // Update counters in the settings table
                         $('#wphoula-products-synced-count').text(totalSynced);
                         $('#wphoula-last-full-sync').text(new Date().toLocaleString());
+
+                        // Refresh the synced products table
+                        loadSyncedProducts();
                     }
                 }).fail(function () {
                     $btn.prop('disabled', false);

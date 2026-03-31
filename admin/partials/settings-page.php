@@ -195,152 +195,25 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
     <!-- ============================================================= -->
     <?php if ( wphoula_is_woocommerce_active() && $workspace_has_shop ) : ?>
     <div class="wphoula-tab-content" id="tab-sync" style="display:none;">
+        <?php if ( ! $is_connected ) : ?>
         <div class="wphoula-card">
             <h2><?php esc_html_e( 'Product Sync', 'wp-houla' ); ?></h2>
-
-            <!-- Shop activation check (loaded via AJAX) -->
-            <div id="wphoula-shop-status-banner" class="wphoula-shop-status-banner" style="display:none;">
-                <span class="dashicons dashicons-warning" style="color:#d63638; margin-right:6px;"></span>
-                <div>
-                    <strong><?php esc_html_e( 'Shop not activated', 'wp-houla' ); ?></strong>
-                    <p style="margin:4px 0 0; color:#666;">
-                        <?php esc_html_e( 'Your Hou.la shop is not activated yet. Please connect Stripe on your Hou.la dashboard (Manager > Shop) before syncing products.', 'wp-houla' ); ?>
-                    </p>
-                </div>
-            </div>
-
-            <?php
-            // Suggest mapping categories -> collections if not done yet
-            $cat_map = $options->get( 'category_collection_map' );
-            $has_mapping = is_array( $cat_map ) && ! empty( $cat_map );
-            if ( $is_connected && ! $has_mapping ) :
-            ?>
-            <div class="notice notice-info inline" style="margin: 0 0 16px; padding: 10px 14px; display:flex; align-items:flex-start; gap:8px;" id="wphoula-mapping-suggestion">
-                <span class="dashicons dashicons-info" style="color:#2271b1; margin-top:2px;"></span>
-                <div>
-                    <strong><?php esc_html_e( 'Astuce : associez d\'abord vos catégories', 'wp-houla' ); ?></strong>
-                    <p style="margin:4px 0 0; color:#555;">
-                        <?php esc_html_e( 'Avant de synchroniser vos produits, nous vous recommandons d\'associer vos catégories WooCommerce aux collections Hou.la. Rendez-vous dans la section « Correspondance catégories - collections » ci-dessous et cliquez sur « Créer automatiquement les collections ».', 'wp-houla' ); ?>
-                    </p>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <?php if ( ! $is_connected ) : ?>
-                <p class="description"><?php esc_html_e( 'Connect your account first to configure sync options.', 'wp-houla' ); ?></p>
-            <?php else : ?>
-
-                <table class="form-table">
-                    <tr>
-                        <th><?php esc_html_e( 'Auto-sync', 'wp-houla' ); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" id="wphoula-auto-sync" <?php checked( $auto_sync ); ?>>
-                                <?php esc_html_e( 'Automatically sync product changes to Hou.la', 'wp-houla' ); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Sync on publish', 'wp-houla' ); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" id="wphoula-sync-on-publish" <?php checked( $sync_on_publish ); ?>>
-                                <?php esc_html_e( 'Sync new products when they are published', 'wp-houla' ); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></th>
-                        <td>
-                            <fieldset>
-                                <legend class="screen-reader-text"><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></legend>
-                                <?php
-                                $sync_categories = $options->get( 'sync_categories' );
-                                if ( ! is_array( $sync_categories ) ) {
-                                    $sync_categories = array();
-                                }
-                                $product_cats = get_terms( array(
-                                    'taxonomy'   => 'product_cat',
-                                    'hide_empty' => false,
-                                    'orderby'    => 'name',
-                                    'order'      => 'ASC',
-                                ) );
-                                if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
-                                ?>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">
-                                        <input type="checkbox" id="wphoula-select-all-categories">
-                                        <?php esc_html_e( 'Select all', 'wp-houla' ); ?>
-                                    </label>
-                                    <hr style="margin: 4px 0 8px;">
-                                <?php
-                                    foreach ( $product_cats as $cat ) :
-                                        $checked = in_array( (int) $cat->term_id, array_map( 'intval', $sync_categories ), true );
-                                ?>
-                                    <label style="display: block; margin-bottom: 4px;">
-                                        <input type="checkbox" class="wphoula-sync-category" value="<?php echo esc_attr( $cat->term_id ); ?>" <?php checked( $checked ); ?>>
-                                        <?php echo esc_html( $cat->name ); ?>
-                                        <span class="description">(<?php echo esc_html( $cat->count ); ?>)</span>
-                                    </label>
-                                <?php
-                                    endforeach;
-                                else :
-                                ?>
-                                    <p class="description"><?php esc_html_e( 'No WooCommerce categories found.', 'wp-houla' ); ?></p>
-                                <?php endif; ?>
-                                <p class="description"><?php esc_html_e( 'Select which categories to sync. Leave all unchecked to sync all products.', 'wp-houla' ); ?></p>
-                            </fieldset>
-                        </td>
-                    </tr>
-                </table>
-
-                <p>
-                    <button type="button" class="button button-primary" id="wphoula-save-settings">
-                        <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
-                    </button>
-                </p>
-
-            <?php endif; ?>
+            <p class="description"><?php esc_html_e( 'Connect your account first to configure sync options.', 'wp-houla' ); ?></p>
         </div>
-
-        <?php if ( $is_connected ) : ?>
-        <!-- ============================================================= -->
-        <!-- Lancer la synchronisation                                      -->
-        <!-- ============================================================= -->
-        <div class="wphoula-card" style="margin-top: 20px;">
-            <h2><?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?></h2>
-
-            <table class="form-table">
-                <tr>
-                    <th><?php esc_html_e( 'Produits synchronisés', 'wp-houla' ); ?></th>
-                    <td><strong id="wphoula-products-synced-count"><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e( 'Dernière synchronisation', 'wp-houla' ); ?></th>
-                    <td id="wphoula-last-full-sync"><?php echo $last_full_sync ? esc_html( $last_full_sync ) : esc_html__( 'Jamais', 'wp-houla' ); ?></td>
-                </tr>
-            </table>
-
-            <p>
-                <button type="button" class="button button-primary" id="wphoula-batch-sync">
-                    <?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?>
-                </button>
-                <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
-                <button type="button" class="button" id="wphoula-reset-sync" style="color:#b32d2e;border-color:#b32d2e;">
-                    <?php esc_html_e( 'Réinitialiser la synchronisation', 'wp-houla' ); ?>
-                </button>
-                <?php endif; ?>
-                <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
-            </p>
-
-            <!-- Progress bar (hidden by default) -->
-            <div id="wphoula-sync-progress" class="wphoula-progress" style="display:none;">
-                <div class="wphoula-progress-bar">
-                    <div class="wphoula-progress-fill" id="wphoula-progress-fill"></div>
-                </div>
-                <p class="wphoula-progress-text" id="wphoula-progress-text"></p>
-            </div>
-        </div>
-
+        <?php else : ?>
+        <?php
+        // Pre-fetch product categories (used in settings and mapping cards)
+        $sync_categories = $options->get( 'sync_categories' );
+        if ( ! is_array( $sync_categories ) ) {
+            $sync_categories = array();
+        }
+        $product_cats = get_terms( array(
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ) );
+        ?>
         <!-- ============================================================= -->
         <!-- Price adjustment                                               -->
         <!-- ============================================================= -->
@@ -535,6 +408,137 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                     <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
                 </button>
             </p>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- Product Sync settings                                          -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Product Sync', 'wp-houla' ); ?></h2>
+
+            <!-- Shop activation check (loaded via AJAX) -->
+            <div id="wphoula-shop-status-banner" class="wphoula-shop-status-banner" style="display:none;">
+                <span class="dashicons dashicons-warning" style="color:#d63638; margin-right:6px;"></span>
+                <div>
+                    <strong><?php esc_html_e( 'Shop not activated', 'wp-houla' ); ?></strong>
+                    <p style="margin:4px 0 0; color:#666;">
+                        <?php esc_html_e( 'Your Hou.la shop is not activated yet. Please connect Stripe on your Hou.la dashboard (Manager > Shop) before syncing products.', 'wp-houla' ); ?>
+                    </p>
+                </div>
+            </div>
+
+            <?php
+            $cat_map = $options->get( 'category_collection_map' );
+            $has_mapping = is_array( $cat_map ) && ! empty( $cat_map );
+            if ( ! $has_mapping ) :
+            ?>
+            <div class="notice notice-info inline" style="margin: 0 0 16px; padding: 10px 14px; display:flex; align-items:flex-start; gap:8px;" id="wphoula-mapping-suggestion">
+                <span class="dashicons dashicons-info" style="color:#2271b1; margin-top:2px;"></span>
+                <div>
+                    <strong><?php esc_html_e( 'Astuce : associez d\'abord vos catégories', 'wp-houla' ); ?></strong>
+                    <p style="margin:4px 0 0; color:#555;">
+                        <?php esc_html_e( 'Avant de synchroniser vos produits, nous vous recommandons d\'associer vos catégories WooCommerce aux collections Hou.la. Rendez-vous dans la section « Correspondance catégories - collections » ci-dessous et cliquez sur « Créer automatiquement les collections ».', 'wp-houla' ); ?>
+                    </p>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Auto-sync', 'wp-houla' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="wphoula-auto-sync" <?php checked( $auto_sync ); ?>>
+                            <?php esc_html_e( 'Automatically sync product changes to Hou.la', 'wp-houla' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Sync on publish', 'wp-houla' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="wphoula-sync-on-publish" <?php checked( $sync_on_publish ); ?>>
+                            <?php esc_html_e( 'Sync new products when they are published', 'wp-houla' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></th>
+                    <td>
+                        <fieldset>
+                            <legend class="screen-reader-text"><?php esc_html_e( 'Category filter', 'wp-houla' ); ?></legend>
+                            <?php
+                            if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
+                            ?>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                    <input type="checkbox" id="wphoula-select-all-categories">
+                                    <?php esc_html_e( 'Select all', 'wp-houla' ); ?>
+                                </label>
+                                <hr style="margin: 4px 0 8px;">
+                            <?php
+                                foreach ( $product_cats as $cat ) :
+                                    $checked = in_array( (int) $cat->term_id, array_map( 'intval', $sync_categories ), true );
+                            ?>
+                                <label style="display: block; margin-bottom: 4px;">
+                                    <input type="checkbox" class="wphoula-sync-category" value="<?php echo esc_attr( $cat->term_id ); ?>" <?php checked( $checked ); ?>>
+                                    <?php echo esc_html( $cat->name ); ?>
+                                    <span class="description">(<?php echo esc_html( $cat->count ); ?>)</span>
+                                </label>
+                            <?php
+                                endforeach;
+                            else :
+                            ?>
+                                <p class="description"><?php esc_html_e( 'No WooCommerce categories found.', 'wp-houla' ); ?></p>
+                            <?php endif; ?>
+                            <p class="description"><?php esc_html_e( 'Select which categories to sync. Leave all unchecked to sync all products.', 'wp-houla' ); ?></p>
+                        </fieldset>
+                    </td>
+                </tr>
+            </table>
+
+            <p>
+                <button type="button" class="button button-primary" id="wphoula-save-settings">
+                    <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
+                </button>
+            </p>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- Lancer la synchronisation                                      -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?></h2>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Produits synchronisés', 'wp-houla' ); ?></th>
+                    <td><strong id="wphoula-products-synced-count"><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Dernière synchronisation', 'wp-houla' ); ?></th>
+                    <td id="wphoula-last-full-sync"><?php echo $last_full_sync ? esc_html( $last_full_sync ) : esc_html__( 'Jamais', 'wp-houla' ); ?></td>
+                </tr>
+            </table>
+
+            <p>
+                <button type="button" class="button button-primary" id="wphoula-batch-sync">
+                    <?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?>
+                </button>
+                <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
+                <button type="button" class="button" id="wphoula-reset-sync" style="color:#b32d2e;border-color:#b32d2e;">
+                    <?php esc_html_e( 'Réinitialiser la synchronisation', 'wp-houla' ); ?>
+                </button>
+                <?php endif; ?>
+                <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
+            </p>
+
+            <!-- Progress bar (hidden by default) -->
+            <div id="wphoula-sync-progress" class="wphoula-progress" style="display:none;">
+                <div class="wphoula-progress-bar">
+                    <div class="wphoula-progress-fill" id="wphoula-progress-fill"></div>
+                </div>
+                <p class="wphoula-progress-text" id="wphoula-progress-text"></p>
+            </div>
         </div>
 
         <!-- ============================================================= -->
