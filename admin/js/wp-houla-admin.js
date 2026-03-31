@@ -112,6 +112,35 @@
     // Workspace switcher
     // =================================================================
 
+    // Map of workspace id -> hasShop (populated by loadWorkspaces)
+    var workspaceShopMap = {};
+
+    /**
+     * Show or hide shop-related tabs (Sync Produits, Commandes) based on hasShop.
+     */
+    function updateShopTabs(hasShop) {
+        var $syncTab = $('.wphoula-tabs .nav-tab[data-tab="sync"]');
+        var $ordersTab = $('.wphoula-tabs .nav-tab[data-tab="orders"]');
+        var $syncContent = $('#tab-sync');
+        var $ordersContent = $('#tab-orders');
+
+        if (hasShop) {
+            $syncTab.show();
+            $ordersTab.show();
+        } else {
+            $syncTab.hide();
+            $ordersTab.hide();
+            $syncContent.hide();
+            $ordersContent.hide();
+            // If the active tab was sync/orders, switch back to connection
+            if ($syncTab.hasClass('nav-tab-active') || $ordersTab.hasClass('nav-tab-active')) {
+                $syncTab.removeClass('nav-tab-active');
+                $ordersTab.removeClass('nav-tab-active');
+                $('.wphoula-tabs .nav-tab[data-tab="connection"]').addClass('nav-tab-active').trigger('click');
+            }
+        }
+    }
+
     /**
      * Fetch workspaces from the API and populate the select.
      */
@@ -148,10 +177,12 @@
                 return;
             }
 
-            // Populate select options
+            // Populate select options and build hasShop map
             $select.empty();
+            workspaceShopMap = {};
             for (var k = 0; k < workspaces.length; k++) {
                 var ws = workspaces[k];
+                workspaceShopMap[ws.id] = !!ws.hasShop;
                 var parts = [ws.name];
                 if (ws.type === 'personal') parts.push('(Personnel)');
                 if (ws.plan !== 'free') parts.push('[' + ws.plan.toUpperCase() + ']');
@@ -165,6 +196,12 @@
                 );
             }
             $select.prop('disabled', false);
+
+            // Dynamically show/hide shop tabs based on the current workspace
+            var currentId = $select.val();
+            if (currentId && typeof workspaceShopMap[currentId] !== 'undefined') {
+                updateShopTabs(workspaceShopMap[currentId]);
+            }
         }).fail(function (xhr) {
             $loading.hide();
             $status.show().html('<span style="color:#d63638;">✗ Erreur réseau (HTTP ' + xhr.status + ')</span>');
@@ -199,7 +236,8 @@
         $.post(ajaxUrl, {
             action: 'wphoula_switch_workspace',
             nonce: nonce,
-            workspace_id: selectedId
+            workspace_id: selectedId,
+            has_shop: workspaceShopMap[selectedId] ? '1' : '0'
         }, function (response) {
             $loading.hide();
             if (response.success) {

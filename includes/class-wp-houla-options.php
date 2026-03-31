@@ -68,6 +68,8 @@ class Wp_Houla_Options {
                 'gtin'  => '',
                 'isbn' => '',
             ),
+            // Whether the connected workspace has a shop enabled
+            'workspace_has_shop'  => true,
         ) );
 
         $this->_options = wp_parse_args( get_option( WPHOULA_OPTIONS, array() ), $defaults );

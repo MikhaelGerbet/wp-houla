@@ -25,6 +25,7 @@ $products_synced = $options->get( 'products_synced' );
 $last_full_sync  = $options->get( 'last_full_sync' );
 $orders_received = $options->get( 'orders_received' );
 $last_order_at   = $options->get( 'last_order_at' );
+$workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
 ?>
 
 <div class="wrap wphoula-settings">
@@ -66,7 +67,7 @@ $last_order_at   = $options->get( 'last_order_at' );
             <?php esc_html_e( 'Short Links & QR Code', 'wp-houla' ); ?>
         </a>
         <?php endif; ?>
-        <?php if ( wphoula_is_woocommerce_active() ) : ?>
+        <?php if ( wphoula_is_woocommerce_active() && $workspace_has_shop ) : ?>
         <a href="#tab-sync" class="nav-tab" data-tab="sync">
             <?php esc_html_e( 'Sync. Produits', 'wp-houla' ); ?>
         </a>
@@ -192,7 +193,7 @@ $last_order_at   = $options->get( 'last_order_at' );
     <!-- ============================================================= -->
     <!-- TAB: Sync (WooCommerce only)                                   -->
     <!-- ============================================================= -->
-    <?php if ( wphoula_is_woocommerce_active() ) : ?>
+    <?php if ( wphoula_is_woocommerce_active() && $workspace_has_shop ) : ?>
     <div class="wphoula-tab-content" id="tab-sync" style="display:none;">
         <div class="wphoula-card">
             <h2><?php esc_html_e( 'Product Sync', 'wp-houla' ); ?></h2>
@@ -721,7 +722,7 @@ $last_order_at   = $options->get( 'last_order_at' );
         </div>
         <?php endif; ?>
     </div>
-    <?php endif; /* wphoula_is_woocommerce_active() */ ?>
+    <?php endif; /* wphoula_is_woocommerce_active() && workspace_has_shop */ ?>
 
     <!-- ============================================================= -->
     <!-- TAB: Debug                                                     -->

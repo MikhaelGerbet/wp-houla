@@ -237,15 +237,23 @@ class Wp_Houla_Admin {
             }
         }
 
+        // Persist the current workspace's hasShop flag for PHP template rendering
+        foreach ( $workspaces as $ws ) {
+            if ( $ws['isCurrent'] ) {
+                $this->options->set( 'workspace_has_shop', $ws['hasShop'] );
+                break;
+            }
+        }
+
         wp_send_json_success( array( 'workspaces' => $workspaces ) );
     }
 
     /**
      * AJAX: Switch to a different workspace.
      *
-     * Calls POST /api/oauth/switch-workspace on the Hou.la API with the Bearer
-     * token, stores the new tokens + workspace info, re-provisions the API key,
-     * and resets sync metadata.
+     * Calls POST /api/oauth/switch-workspace on the Hou.la API via the
+     * Wp_Houla_Api class (uses X-Api-Key), stores the new tokens + workspace
+     * info, re-provisions the API key, and resets sync metadata.
      */
     public function ajax_switch_workspace() {
         check_ajax_referer( 'wphoula_admin', 'nonce' );
@@ -259,41 +267,17 @@ class Wp_Houla_Admin {
             wp_send_json_error( __( 'No workspace ID provided.', 'wp-houla' ) );
         }
 
-        // Need Bearer token for the switch endpoint (not API key)
-        $token = $this->auth->get_access_token();
-        if ( empty( $token ) ) {
-            // Try refresh first
-            if ( ! $this->auth->refresh_token() ) {
-                wp_send_json_error( __( 'Authentication expired. Please reconnect.', 'wp-houla' ) );
-            }
-            $token = $this->auth->get_access_token();
-        }
-
-        $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
-        $url     = $api_url . '/api/oauth/switch-workspace';
-
-        $response = wp_remote_post( $url, array(
-            'timeout' => 30,
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-                'Accept'        => 'application/json',
-                'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
-            ),
-            'body' => wp_json_encode( array(
-                'workspace_id' => $workspace_id,
-            ) ),
+        $api  = new Wp_Houla_Api();
+        $body = $api->post( '/oauth/switch-workspace', array(
+            'workspace_id' => $workspace_id,
         ) );
 
-        if ( is_wp_error( $response ) ) {
-            wp_send_json_error( $response->get_error_message() );
+        if ( is_wp_error( $body ) ) {
+            wp_send_json_error( $body->get_error_message() );
         }
 
-        $status = wp_remote_retrieve_response_code( $response );
-        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
-
-        if ( $status < 200 || $status >= 300 || empty( $body['access_token'] ) ) {
-            $msg = isset( $body['message'] ) ? $body['message'] : 'HTTP ' . $status;
+        if ( ! is_array( $body ) || empty( $body['access_token'] ) ) {
+            $msg = isset( $body['message'] ) ? $body['message'] : __( 'Réponse invalide de l\'API.', 'wp-houla' );
             wp_send_json_error( $msg );
         }
 
@@ -308,9 +292,15 @@ class Wp_Houla_Admin {
         $this->options->set( 'products_synced', 0 );
         $this->options->set( 'last_full_sync', '' );
 
+        // Persist hasShop flag sent by the JS (from the workspaces list)
+        if ( isset( $_POST['has_shop'] ) ) {
+            $this->options->set( 'workspace_has_shop', rest_sanitize_boolean( wp_unslash( $_POST['has_shop'] ) ) );
+        }
+
         wp_send_json_success( array(
             'workspace_id'   => $body['workspace_id'] ?? $workspace_id,
             'workspace_name' => $body['workspace_name'] ?? '',
+            'has_shop'       => $this->options->get( 'workspace_has_shop' ),
             'message'        => __( 'Espace de travail changé avec succès.', 'wp-houla' ),
         ) );
     }
