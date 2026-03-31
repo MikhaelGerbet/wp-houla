@@ -109,6 +109,8 @@ class Wp_Houla {
         // Admin AJAX actions
         $this->loader->add_action( 'wp_ajax_wphoula_disconnect', $admin, 'ajax_disconnect' );
         $this->loader->add_action( 'wp_ajax_wphoula_save_settings', $admin, 'ajax_save_settings' );
+        $this->loader->add_action( 'wp_ajax_wphoula_get_workspaces', $admin, 'ajax_get_workspaces' );
+        $this->loader->add_action( 'wp_ajax_wphoula_switch_workspace', $admin, 'ajax_switch_workspace' );
 
         // WooCommerce-specific admin features
         if ( wphoula_is_woocommerce_active() ) {

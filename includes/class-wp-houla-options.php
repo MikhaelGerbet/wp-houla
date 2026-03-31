@@ -63,9 +63,9 @@ class Wp_Houla_Options {
             ),
             // Tracking sync
             'sync_tracking'      => true,
-            // Product identifiers meta mapping (ean/isbn => WC meta_key)
+            // Product identifiers meta mapping (gtin/isbn => WC meta_key)
             'identifier_meta_map' => array(
-                'ean'  => '',
+                'gtin'  => '',
                 'isbn' => '',
             ),
         ) );

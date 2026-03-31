@@ -109,6 +109,97 @@
     });
 
     // =================================================================
+    // Workspace switcher
+    // =================================================================
+
+    $(document).on('click', '#wphoula-change-workspace', function () {
+        var $list = $('#wphoula-workspace-list');
+
+        // Toggle visibility
+        if ($list.is(':visible')) {
+            $list.hide();
+            return;
+        }
+
+        // Show loading state and fetch workspaces
+        $list.show().html(
+            '<p class="description">' +
+            '<span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>' +
+            (i18n.loadingWorkspaces || 'Loading workspaces…') +
+            '</p>'
+        );
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_workspaces',
+            nonce: nonce
+        }, function (response) {
+            if (!response.success || !response.data.workspaces) {
+                $list.html('<p class="description" style="color:#d63638;">' + (response.data || 'Error') + '</p>');
+                return;
+            }
+
+            var workspaces = response.data.workspaces;
+            if (workspaces.length <= 1) {
+                $list.html('<p class="description">' + (i18n.onlyOneWorkspace || 'You only have one workspace.') + '</p>');
+                return;
+            }
+
+            var html = '<select id="wphoula-workspace-select" class="regular-text">';
+            for (var k = 0; k < workspaces.length; k++) {
+                var ws = workspaces[k];
+                var label = ws.name;
+                if (ws.type === 'personal') label += ' (Personal)';
+                if (ws.hasShop) label += ' ✓ Shop';
+                else label += ' — No shop';
+                if (ws.plan !== 'free') label += ' [' + ws.plan.toUpperCase() + ']';
+
+                html += '<option value="' + ws.id + '"' + (ws.isCurrent ? ' selected' : '') + '>' + $('<span>').text(label).html() + '</option>';
+            }
+            html += '</select>';
+            html += ' <button type="button" class="button button-primary" id="wphoula-confirm-switch">' + (i18n.switchWorkspace || 'Switch') + '</button>';
+            html += ' <button type="button" class="button" id="wphoula-cancel-switch">' + (i18n.cancel || 'Cancel') + '</button>';
+
+            $list.html(html);
+        }).fail(function () {
+            $list.html('<p class="description" style="color:#d63638;">Network error</p>');
+        });
+    });
+
+    $(document).on('click', '#wphoula-cancel-switch', function () {
+        $('#wphoula-workspace-list').hide();
+    });
+
+    $(document).on('click', '#wphoula-confirm-switch', function () {
+        var selectedId = $('#wphoula-workspace-select').val();
+        var $btn = $(this);
+        var $status = $('#wphoula-switch-status');
+
+        $btn.prop('disabled', true);
+        $status.show().html(
+            '<span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>' +
+            (i18n.switchingWorkspace || 'Switching workspace…')
+        );
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_switch_workspace',
+            nonce: nonce,
+            workspace_id: selectedId
+        }, function (response) {
+            if (response.success) {
+                $status.html('<span style="color:#00a32a;">✓ ' + (response.data.message || 'Done') + '</span>');
+                // Reload page after a short delay to reflect the change
+                setTimeout(function () { location.reload(); }, 1000);
+            } else {
+                $status.html('<span style="color:#d63638;">✗ ' + (response.data || 'Error') + '</span>');
+                $btn.prop('disabled', false);
+            }
+        }).fail(function () {
+            $status.html('<span style="color:#d63638;">✗ Network error</span>');
+            $btn.prop('disabled', false);
+        });
+    });
+
+    // =================================================================
     // Save settings
     // =================================================================
 

@@ -311,7 +311,7 @@ class Wp_Houla_Auth {
      * a houla_sk_... key. The key is stored encrypted in WP options
      * and used for all subsequent API requests instead of the OAuth token.
      */
-    private function provision_api_key() {
+    public function provision_api_key() {
         $token = Wp_Houla_Options::decrypt( $this->options->get( 'access_token' ) );
 
         if ( empty( $token ) ) {

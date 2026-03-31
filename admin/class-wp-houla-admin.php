@@ -88,6 +88,11 @@ class Wp_Houla_Admin {
                     'syncedOrders'        => __( 'Synced', 'wp-houla' ),
                     'failedOrders'        => __( 'Failed', 'wp-houla' ),
                     'pendingOrders'       => __( 'Pending', 'wp-houla' ),
+                    'loadingWorkspaces'   => __( 'Loading workspaces…', 'wp-houla' ),
+                    'onlyOneWorkspace'    => __( 'You only have one workspace.', 'wp-houla' ),
+                    'switchWorkspace'     => __( 'Switch', 'wp-houla' ),
+                    'switchingWorkspace'  => __( 'Switching workspace…', 'wp-houla' ),
+                    'cancel'              => __( 'Cancel', 'wp-houla' ),
                 ),
             ) );
         }
@@ -191,6 +196,117 @@ class Wp_Houla_Admin {
         $this->auth->disconnect();
 
         wp_send_json_success( array( 'message' => __( 'Disconnected from Hou.la.', 'wp-houla' ) ) );
+    }
+
+    /**
+     * AJAX: List user's workspaces from the Hou.la API.
+     */
+    public function ajax_get_workspaces() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $api    = new Wp_Houla_Api();
+        $result = $api->get( '/workspaces' );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        $current_ws_id = $this->options->get( 'workspace_id' );
+
+        $workspaces = array();
+        if ( is_array( $result ) ) {
+            foreach ( $result as $ws ) {
+                $workspaces[] = array(
+                    'id'        => $ws['id'] ?? '',
+                    'name'      => $ws['name'] ?? '',
+                    'type'      => $ws['type'] ?? 'personal',
+                    'plan'      => $ws['plan'] ?? 'free',
+                    'hasShop'   => ! empty( $ws['hasShop'] ),
+                    'isCurrent' => ( ( $ws['id'] ?? '' ) === $current_ws_id ),
+                );
+            }
+        }
+
+        wp_send_json_success( array( 'workspaces' => $workspaces ) );
+    }
+
+    /**
+     * AJAX: Switch to a different workspace.
+     *
+     * Calls POST /api/oauth/switch-workspace on the Hou.la API with the Bearer
+     * token, stores the new tokens + workspace info, re-provisions the API key,
+     * and resets sync metadata.
+     */
+    public function ajax_switch_workspace() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $workspace_id = isset( $_POST['workspace_id'] ) ? sanitize_text_field( wp_unslash( $_POST['workspace_id'] ) ) : '';
+        if ( empty( $workspace_id ) ) {
+            wp_send_json_error( __( 'No workspace ID provided.', 'wp-houla' ) );
+        }
+
+        // Need Bearer token for the switch endpoint (not API key)
+        $token = $this->auth->get_access_token();
+        if ( empty( $token ) ) {
+            // Try refresh first
+            if ( ! $this->auth->refresh_token() ) {
+                wp_send_json_error( __( 'Authentication expired. Please reconnect.', 'wp-houla' ) );
+            }
+            $token = $this->auth->get_access_token();
+        }
+
+        $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
+        $url     = $api_url . '/api/oauth/switch-workspace';
+
+        $response = wp_remote_post( $url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+                'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+            ),
+            'body' => wp_json_encode( array(
+                'workspace_id' => $workspace_id,
+            ) ),
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( $response->get_error_message() );
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status < 200 || $status >= 300 || empty( $body['access_token'] ) ) {
+            $msg = isset( $body['message'] ) ? $body['message'] : 'HTTP ' . $status;
+            wp_send_json_error( $msg );
+        }
+
+        // Store new tokens + workspace info
+        $this->auth->store_tokens( $body );
+
+        // Clear old API key and re-provision for the new workspace
+        $this->options->set( 'api_key', '' );
+        $this->auth->provision_api_key();
+
+        // Reset sync metadata (products are workspace-scoped)
+        $this->options->set( 'products_synced', 0 );
+        $this->options->set( 'last_full_sync', '' );
+
+        wp_send_json_success( array(
+            'workspace_id'   => $body['workspace_id'] ?? $workspace_id,
+            'workspace_name' => $body['workspace_name'] ?? '',
+            'message'        => __( 'Workspace switched successfully.', 'wp-houla' ),
+        ) );
     }
 
     /**
@@ -317,10 +433,10 @@ class Wp_Houla_Admin {
         // Tracking sync
         $sync_tracking = ! empty( $_POST['sync_tracking'] );
 
-        // Product identifiers meta mapping (ean/isbn => WC meta_key)
-        $identifier_meta_map = array( 'ean' => '', 'isbn' => '' );
+        // Product identifiers meta mapping (gtin/isbn => WC meta_key)
+        $identifier_meta_map = array( 'gtin' => '', 'isbn' => '' );
         if ( isset( $_POST['identifier_meta_map'] ) && is_array( $_POST['identifier_meta_map'] ) ) {
-            $valid_ids = array( 'ean', 'isbn' );
+            $valid_ids = array( 'gtin', 'isbn' );
             foreach ( $_POST['identifier_meta_map'] as $id_key => $meta_key ) {
                 $id_key   = sanitize_key( $id_key );
                 $meta_key = sanitize_text_field( $meta_key );

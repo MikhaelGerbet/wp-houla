@@ -99,7 +99,21 @@ $last_order_at   = $options->get( 'last_order_at' );
                     <?php if ( $workspace_name ) : ?>
                     <tr>
                         <th><?php esc_html_e( 'Workspace', 'wp-houla' ); ?></th>
-                        <td><?php echo esc_html( $workspace_name ); ?></td>
+                        <td>
+                            <div id="wphoula-workspace-selector">
+                                <span id="wphoula-current-workspace"><?php echo esc_html( $workspace_name ); ?></span>
+                                <button type="button" class="button button-small" id="wphoula-change-workspace" style="margin-left: 8px;">
+                                    <?php esc_html_e( 'Change', 'wp-houla' ); ?>
+                                </button>
+                                <div id="wphoula-workspace-list" style="display:none; margin-top: 10px;">
+                                    <p class="description" style="margin-bottom: 6px;">
+                                        <span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>
+                                        <?php esc_html_e( 'Loading workspaces…', 'wp-houla' ); ?>
+                                    </p>
+                                </div>
+                                <div id="wphoula-switch-status" style="display:none; margin-top: 6px;"></div>
+                            </div>
+                        </td>
                     </tr>
                     <?php endif; ?>
                     <?php if ( $user_email ) : ?>
@@ -371,7 +385,7 @@ $last_order_at   = $options->get( 'last_order_at' );
             <?php
             $id_meta_map = $options->get( 'identifier_meta_map' );
             if ( ! is_array( $id_meta_map ) ) {
-                $id_meta_map = array( 'ean' => '', 'isbn' => '' );
+                $id_meta_map = array( 'gtin' => '', 'isbn' => '' );
             }
             ?>
 
@@ -382,10 +396,10 @@ $last_order_at   = $options->get( 'last_order_at' );
                         <p class="description" style="font-weight:normal;"><?php esc_html_e( 'GTIN-8, GTIN-12 (UPC), GTIN-13 (EAN-13), GTIN-14', 'wp-houla' ); ?></p>
                     </th>
                     <td>
-                        <select id="wphoula-id-meta-ean" class="wphoula-id-meta-select" data-id-key="ean" style="min-width: 320px;">
+                        <select id="wphoula-id-meta-ean" class="wphoula-id-meta-select" data-id-key="gtin" style="min-width: 320px;">
                             <option value=""><?php esc_html_e( '— Not configured —', 'wp-houla' ); ?></option>
                         </select>
-                        <input type="hidden" id="wphoula-id-meta-ean-saved" value="<?php echo esc_attr( $id_meta_map['ean'] ?? '' ); ?>">
+                        <input type="hidden" id="wphoula-id-meta-ean-saved" value="<?php echo esc_attr( $id_meta_map['gtin'] ?? '' ); ?>">
                         <span class="wphoula-id-meta-loading" style="display:none;">
                             <span class="spinner is-active" style="float:none; margin:0 4px;"></span>
                         </span>
