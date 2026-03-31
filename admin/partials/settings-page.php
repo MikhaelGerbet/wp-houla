@@ -84,41 +84,42 @@ $last_order_at   = $options->get( 'last_order_at' );
     <!-- ============================================================= -->
     <div class="wphoula-tab-content" id="tab-connection">
         <div class="wphoula-card">
-            <h2><?php esc_html_e( 'Hou.la Account', 'wp-houla' ); ?></h2>
+            <h2><?php esc_html_e( 'Compte Hou.la', 'wp-houla' ); ?></h2>
 
             <?php if ( $is_connected ) : ?>
                 <table class="form-table">
                     <tr>
-                        <th><?php esc_html_e( 'Status', 'wp-houla' ); ?></th>
+                        <th><?php esc_html_e( 'Statut', 'wp-houla' ); ?></th>
                         <td>
                             <span class="wphoula-status wphoula-status--connected">
-                                <?php esc_html_e( 'Connected', 'wp-houla' ); ?>
+                                <?php esc_html_e( 'Connecté', 'wp-houla' ); ?>
                             </span>
                         </td>
                     </tr>
                     <?php if ( $workspace_name ) : ?>
                     <tr>
-                        <th><?php esc_html_e( 'Workspace', 'wp-houla' ); ?></th>
+                        <th><?php esc_html_e( 'Espace de travail', 'wp-houla' ); ?></th>
                         <td>
-                            <div id="wphoula-workspace-selector">
-                                <span id="wphoula-current-workspace"><?php echo esc_html( $workspace_name ); ?></span>
-                                <button type="button" class="button button-small" id="wphoula-change-workspace" style="margin-left: 8px;">
-                                    <?php esc_html_e( 'Change', 'wp-houla' ); ?>
-                                </button>
-                                <div id="wphoula-workspace-list" style="display:none; margin-top: 10px;">
-                                    <p class="description" style="margin-bottom: 6px;">
-                                        <span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>
-                                        <?php esc_html_e( 'Loading workspaces…', 'wp-houla' ); ?>
-                                    </p>
+                            <div id="wphoula-workspace-selector" class="wphoula-workspace-selector">
+                                <div class="wphoula-workspace-row">
+                                    <select id="wphoula-workspace-select" disabled>
+                                        <option value=""><?php echo esc_html( $workspace_name ); ?></option>
+                                    </select>
+                                    <button type="button" class="button button-small wphoula-btn-refresh" id="wphoula-workspace-refresh" title="<?php esc_attr_e( 'Rafraîchir la liste', 'wp-houla' ); ?>">
+                                        <span class="dashicons dashicons-update"></span>
+                                    </button>
+                                    <span id="wphoula-workspace-loading" class="wphoula-workspace-loading">
+                                        <span class="spinner is-active"></span>
+                                    </span>
                                 </div>
-                                <div id="wphoula-switch-status" style="display:none; margin-top: 6px;"></div>
+                                <div id="wphoula-switch-status" class="wphoula-switch-status"></div>
                             </div>
                         </td>
                     </tr>
                     <?php endif; ?>
                     <?php if ( $user_email ) : ?>
                     <tr>
-                        <th><?php esc_html_e( 'Email', 'wp-houla' ); ?></th>
+                        <th><?php esc_html_e( 'E-mail', 'wp-houla' ); ?></th>
                         <td><?php echo esc_html( $user_email ); ?></td>
                     </tr>
                     <?php endif; ?>
@@ -126,15 +127,15 @@ $last_order_at   = $options->get( 'last_order_at' );
 
                 <p>
                     <button type="button" class="button button-secondary" id="wphoula-disconnect">
-                        <?php esc_html_e( 'Disconnect', 'wp-houla' ); ?>
+                        <?php esc_html_e( 'Déconnexion', 'wp-houla' ); ?>
                     </button>
                 </p>
 
             <?php else : ?>
-                <p><?php esc_html_e( 'Connect your Hou.la account to generate short links and QR codes for your posts.', 'wp-houla' ); ?></p>
+                <p><?php esc_html_e( 'Connectez votre compte Hou.la pour générer des liens courts et QR codes sur vos articles.', 'wp-houla' ); ?></p>
                 <p>
                     <a href="<?php echo esc_url( $auth->get_authorization_url() ); ?>" class="button button-primary button-hero">
-                        <?php esc_html_e( 'Connect to Hou.la', 'wp-houla' ); ?>
+                        <?php esc_html_e( 'Se connecter à Hou.la', 'wp-houla' ); ?>
                     </a>
                 </p>
             <?php endif; ?>

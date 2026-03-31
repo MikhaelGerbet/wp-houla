@@ -112,72 +112,88 @@
     // Workspace switcher
     // =================================================================
 
-    $(document).on('click', '#wphoula-change-workspace', function () {
-        var $list = $('#wphoula-workspace-list');
+    /**
+     * Fetch workspaces from the API and populate the select.
+     */
+    function loadWorkspaces() {
+        var $select = $('#wphoula-workspace-select');
+        if (!$select.length) return;
 
-        // Toggle visibility
-        if ($list.is(':visible')) {
-            $list.hide();
-            return;
-        }
-
-        // Show loading state and fetch workspaces
-        $list.show().html(
-            '<p class="description">' +
-            '<span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>' +
-            (i18n.loadingWorkspaces || 'Loading workspaces…') +
-            '</p>'
-        );
+        var $loading = $('#wphoula-workspace-loading');
+        var $status = $('#wphoula-switch-status');
+        $loading.show();
+        $status.hide();
+        $select.prop('disabled', true);
 
         $.post(ajaxUrl, {
             action: 'wphoula_get_workspaces',
             nonce: nonce
         }, function (response) {
-            if (!response.success || !response.data.workspaces) {
-                $list.html('<p class="description" style="color:#d63638;">' + (response.data || 'Error') + '</p>');
+            $loading.hide();
+
+            if (!response.success) {
+                var errMsg = (response.data && typeof response.data === 'string') ? response.data : 'Erreur inconnue';
+                $status.show().html('<span style="color:#d63638;">✗ ' + errMsg + '</span>');
+                return;
+            }
+
+            if (!response.data || !response.data.workspaces) {
+                $status.show().html('<span style="color:#d63638;">✗ Réponse invalide</span>');
                 return;
             }
 
             var workspaces = response.data.workspaces;
             if (workspaces.length <= 1) {
-                $list.html('<p class="description">' + (i18n.onlyOneWorkspace || 'You only have one workspace.') + '</p>');
+                // Only one workspace — no need for a select
                 return;
             }
 
-            var html = '<select id="wphoula-workspace-select" class="regular-text">';
+            // Populate select options
+            $select.empty();
             for (var k = 0; k < workspaces.length; k++) {
                 var ws = workspaces[k];
-                var label = ws.name;
-                if (ws.type === 'personal') label += ' (Personal)';
-                if (ws.hasShop) label += ' ✓ Shop';
-                else label += ' — No shop';
-                if (ws.plan !== 'free') label += ' [' + ws.plan.toUpperCase() + ']';
+                var parts = [ws.name];
+                if (ws.type === 'personal') parts.push('(Personnel)');
+                if (ws.plan !== 'free') parts.push('[' + ws.plan.toUpperCase() + ']');
+                if (ws.hasShop) parts.push('\u2014 \uD83D\uDED2 Boutique');
 
-                html += '<option value="' + ws.id + '"' + (ws.isCurrent ? ' selected' : '') + '>' + $('<span>').text(label).html() + '</option>';
+                $select.append(
+                    $('<option>')
+                        .val(ws.id)
+                        .text(parts.join(' '))
+                        .prop('selected', ws.isCurrent)
+                );
             }
-            html += '</select>';
-            html += ' <button type="button" class="button button-primary" id="wphoula-confirm-switch">' + (i18n.switchWorkspace || 'Switch') + '</button>';
-            html += ' <button type="button" class="button" id="wphoula-cancel-switch">' + (i18n.cancel || 'Cancel') + '</button>';
-
-            $list.html(html);
-        }).fail(function () {
-            $list.html('<p class="description" style="color:#d63638;">Network error</p>');
+            $select.prop('disabled', false);
+        }).fail(function (xhr) {
+            $loading.hide();
+            $status.show().html('<span style="color:#d63638;">✗ Erreur réseau (HTTP ' + xhr.status + ')</span>');
         });
+    }
+
+    // Load workspaces when DOM is ready
+    $(document).ready(function () {
+        loadWorkspaces();
     });
 
-    $(document).on('click', '#wphoula-cancel-switch', function () {
-        $('#wphoula-workspace-list').hide();
+    // Refresh button
+    $(document).on('click', '#wphoula-workspace-refresh', function (e) {
+        e.preventDefault();
+        loadWorkspaces();
     });
 
-    $(document).on('click', '#wphoula-confirm-switch', function () {
-        var selectedId = $('#wphoula-workspace-select').val();
-        var $btn = $(this);
+    // Switch workspace on select change
+    $(document).on('change', '#wphoula-workspace-select', function () {
+        var selectedId = $(this).val();
+        var $select = $(this);
         var $status = $('#wphoula-switch-status');
+        var $loading = $('#wphoula-workspace-loading');
 
-        $btn.prop('disabled', true);
+        $select.prop('disabled', true);
+        $loading.show();
         $status.show().html(
             '<span class="spinner is-active" style="float:none; margin:0 4px 0 0;"></span>' +
-            (i18n.switchingWorkspace || 'Switching workspace…')
+            (i18n.switchingWorkspace || 'Changement en cours…')
         );
 
         $.post(ajaxUrl, {
@@ -185,17 +201,18 @@
             nonce: nonce,
             workspace_id: selectedId
         }, function (response) {
+            $loading.hide();
             if (response.success) {
-                $status.html('<span style="color:#00a32a;">✓ ' + (response.data.message || 'Done') + '</span>');
-                // Reload page after a short delay to reflect the change
+                $status.html('<span style="color:#00a32a;">✓ ' + (response.data.message || 'OK') + '</span>');
                 setTimeout(function () { location.reload(); }, 1000);
             } else {
-                $status.html('<span style="color:#d63638;">✗ ' + (response.data || 'Error') + '</span>');
-                $btn.prop('disabled', false);
+                $status.html('<span style="color:#d63638;">✗ ' + (response.data || 'Erreur') + '</span>');
+                $select.prop('disabled', false);
             }
         }).fail(function () {
-            $status.html('<span style="color:#d63638;">✗ Network error</span>');
-            $btn.prop('disabled', false);
+            $loading.hide();
+            $status.html('<span style="color:#d63638;">✗ Erreur réseau</span>');
+            $select.prop('disabled', false);
         });
     });
 

@@ -88,11 +88,9 @@ class Wp_Houla_Admin {
                     'syncedOrders'        => __( 'Synced', 'wp-houla' ),
                     'failedOrders'        => __( 'Failed', 'wp-houla' ),
                     'pendingOrders'       => __( 'Pending', 'wp-houla' ),
-                    'loadingWorkspaces'   => __( 'Loading workspaces…', 'wp-houla' ),
-                    'onlyOneWorkspace'    => __( 'You only have one workspace.', 'wp-houla' ),
-                    'switchWorkspace'     => __( 'Switch', 'wp-houla' ),
-                    'switchingWorkspace'  => __( 'Switching workspace…', 'wp-houla' ),
-                    'cancel'              => __( 'Cancel', 'wp-houla' ),
+                    'loadingWorkspaces'   => __( 'Chargement des espaces…', 'wp-houla' ),
+                    'onlyOneWorkspace'    => __( 'Vous n\'avez qu\'un seul espace de travail.', 'wp-houla' ),
+                    'switchingWorkspace'  => __( 'Changement en cours…', 'wp-houla' ),
                 ),
             ) );
         }
@@ -212,6 +210,14 @@ class Wp_Houla_Admin {
         $result = $api->get( '/workspaces' );
 
         if ( is_wp_error( $result ) ) {
+            wp_send_json_error( 'API error: ' . $result->get_error_message() );
+        }
+
+        if ( ! is_array( $result ) ) {
+            wp_send_json_error( 'Unexpected response type: ' . gettype( $result ) );
+        }
+
+        if ( is_wp_error( $result ) ) {
             wp_send_json_error( $result->get_error_message() );
         }
 
@@ -305,7 +311,7 @@ class Wp_Houla_Admin {
         wp_send_json_success( array(
             'workspace_id'   => $body['workspace_id'] ?? $workspace_id,
             'workspace_name' => $body['workspace_name'] ?? '',
-            'message'        => __( 'Workspace switched successfully.', 'wp-houla' ),
+            'message'        => __( 'Espace de travail changé avec succès.', 'wp-houla' ),
         ) );
     }
 

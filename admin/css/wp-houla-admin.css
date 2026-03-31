@@ -60,6 +60,57 @@
     color: #721c24;
 }
 
+/* Workspace selector */
+.wphoula-workspace-selector {
+    max-width: 420px;
+}
+.wphoula-workspace-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.wphoula-workspace-row select {
+    flex: 1;
+    min-width: 0;
+    max-width: 340px;
+}
+.wphoula-btn-refresh {
+    flex-shrink: 0;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    min-height: 30px;
+}
+.wphoula-btn-refresh .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+}
+.wphoula-btn-refresh:hover .dashicons {
+    animation: wphoula-spin 0.5s ease;
+}
+@keyframes wphoula-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.wphoula-workspace-loading {
+    display: none;
+    flex-shrink: 0;
+}
+.wphoula-workspace-loading .spinner {
+    float: none;
+    margin: 0;
+}
+.wphoula-switch-status {
+    display: none;
+    margin-top: 6px;
+    font-size: 13px;
+}
+
 /* Spinner */
 .wphoula-spinner {
     display: inline-block;
