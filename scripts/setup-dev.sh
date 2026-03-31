@@ -263,18 +263,25 @@ create_product() {
   local sale_price="$7"
   local weight="$8"
 
-  # Skip if already exists
-  local existing=$($WP post list --post_type=product --meta_key=_sku --meta_value="$sku" --format=count 2>/dev/null || echo "0")
-  if [ "$existing" -gt "0" ]; then
-    echo "  ✓ $name (exists)"
+  # Check if already exists
+  local existing_id=$($WP post list --post_type=product --meta_key=_sku --meta_value="$sku" --field=ID --format=csv 2>/dev/null | head -1)
+  if [ -n "$existing_id" ] && [ "$existing_id" -gt "0" ] 2>/dev/null; then
+    # Product exists — ensure category is assigned
+    if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
+      $WP post term set "$existing_id" product_cat "$cat_id" --by=id 2>/dev/null || true
+    fi
+    echo "  ✓ $name (exists, cat reassigned)"
     return
   fi
 
-  # Build command
+  # Build command with categories included at creation time
   local cmd="$WP wc product create --user=$ADMIN_ID"
   cmd="$cmd --name=\"$name\" --regular_price=$price --sku=$sku"
   cmd="$cmd --status=publish --manage_stock=true --stock_quantity=$stock"
 
+  if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
+    cmd="$cmd --categories='[{\"id\":$cat_id}]'"
+  fi
   if [ -n "$sale_price" ]; then
     cmd="$cmd --sale_price=$sale_price"
   fi
@@ -289,9 +296,9 @@ create_product() {
   if [ -n "$id" ] && [ "$id" -gt "0" ] 2>/dev/null; then
     # Set description
     $WP post update "$id" --post_excerpt="$desc" 2>/dev/null || true
-    # Assign category
+    # Fallback: also assign via wp post term set in case --categories didn't work
     if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
-      $WP term set "$id" product_cat "$cat_id" 2>/dev/null || true
+      $WP post term set "$id" product_cat "$cat_id" --by=id 2>/dev/null || true
     fi
     local dp="$price€"
     if [ -n "$sale_price" ]; then dp="${sale_price}€ (was ${price}€)"; fi
@@ -397,6 +404,10 @@ create_product "Diffuseur Huiles Essentielles" "38.00" "DHE-021" \
 create_product "Mug Artisanal Grès" "16.00" "MAG-022" \
   "Mug grès émaillé fait main, 350ml. Compatible lave-vaisselle." \
   "$CAT_MAISON" 65 "" "0.35"
+
+# Force WooCommerce to recount products per category
+echo "→ Recounting category products..."
+$WP term recount product_cat 2>/dev/null || true
 
 # ──────────────────────────────────────────────────────────────
 # 8. Create test customers

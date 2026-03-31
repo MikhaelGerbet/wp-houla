@@ -68,7 +68,7 @@ $last_order_at   = $options->get( 'last_order_at' );
         <?php endif; ?>
         <?php if ( wphoula_is_woocommerce_active() ) : ?>
         <a href="#tab-sync" class="nav-tab" data-tab="sync">
-            <?php esc_html_e( 'Sync', 'wp-houla' ); ?>
+            <?php esc_html_e( 'Sync. Produits', 'wp-houla' ); ?>
         </a>
         <a href="#tab-orders" class="nav-tab" data-tab="orders">
             <?php esc_html_e( 'Orders', 'wp-houla' ); ?>
@@ -233,6 +233,13 @@ $last_order_at   = $options->get( 'last_order_at' );
                                     'order'      => 'ASC',
                                 ) );
                                 if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
+                                ?>
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                        <input type="checkbox" id="wphoula-select-all-categories">
+                                        <?php esc_html_e( 'Select all', 'wp-houla' ); ?>
+                                    </label>
+                                    <hr style="margin: 4px 0 8px;">
+                                <?php
                                     foreach ( $product_cats as $cat ) :
                                         $checked = in_array( (int) $cat->term_id, array_map( 'intval', $sync_categories ), true );
                                 ?>

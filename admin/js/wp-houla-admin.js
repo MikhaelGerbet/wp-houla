@@ -42,10 +42,42 @@
         $('.wphoula-tab-content').hide();
         $('#tab-' + tab).show();
 
+        // Persist active tab in localStorage
+        try { localStorage.setItem('wphoula_active_tab', tab); } catch (ex) {}
+
         // Load order sync counts when orders tab is activated
         if (tab === 'orders' && !orderSyncLoaded) {
             loadOrderSyncCounts();
         }
+    });
+
+    // Restore persisted tab on page load
+    $(document).ready(function () {
+        try {
+            var savedTab = localStorage.getItem('wphoula_active_tab');
+            if (savedTab) {
+                var $tab = $('.wphoula-tabs .nav-tab[data-tab="' + savedTab + '"]');
+                if ($tab.length) {
+                    $tab.trigger('click');
+                }
+            }
+        } catch (ex) {}
+    });
+
+    // =================================================================
+    // Select All / Deselect All categories
+    // =================================================================
+
+    $(document).on('change', '#wphoula-select-all-categories', function () {
+        var checked = $(this).is(':checked');
+        $('.wphoula-sync-category').prop('checked', checked);
+    });
+
+    // Keep "Select All" in sync when individual checkboxes change
+    $(document).on('change', '.wphoula-sync-category', function () {
+        var total = $('.wphoula-sync-category').length;
+        var checkedCount = $('.wphoula-sync-category:checked').length;
+        $('#wphoula-select-all-categories').prop('checked', checkedCount === total);
     });
 
     // =================================================================
