@@ -374,7 +374,7 @@
         var $text = $('#wphoula-progress-text');
 
         $btn.prop('disabled', true);
-        $spinner.show().text(i18n.syncing || 'Counting products...');
+        $spinner.show().text(i18n.syncing || 'Comptage des produits en cours...');
 
         // Step 1: count products
         $.post(ajaxUrl, {
@@ -383,23 +383,23 @@
         }, function (countResp) {
             if (!countResp.success) {
                 $btn.prop('disabled', false);
-                $spinner.text(i18n.syncError || 'Error');
+                $spinner.text(i18n.syncError || 'Erreur lors du comptage');
                 return;
             }
 
             var total = countResp.data.total;
             if (total === 0) {
                 $btn.prop('disabled', false);
-                $spinner.text('0 products');
+                $spinner.text('Aucun produit à synchroniser');
                 setTimeout(function () { $spinner.hide(); }, 3000);
                 return;
             }
 
-            // Show progress bar
+            // Show progress bar with initial context
             $spinner.hide();
             $progress.show();
-            $fill.css('width', '0%');
-            $text.text('0 / ' + total);
+            $fill.css('width', '0%').removeClass('wphoula-progress-fill--done');
+            $text.html('<strong>Synchronisation en cours...</strong><br>0 / ' + total + ' produits traités');
 
             var page = 1;
             var totalSynced = 0;
@@ -414,7 +414,7 @@
                 }, function (resp) {
                     if (!resp.success) {
                         $btn.prop('disabled', false);
-                        $text.text(i18n.syncError || 'Error');
+                        $text.html('<strong style="color:#d63638;">Erreur de synchronisation</strong><br>Veuillez réessayer.');
                         return;
                     }
 
@@ -422,23 +422,36 @@
                     totalSynced += d.synced;
                     totalErrors += d.errors;
 
-                    var pct = Math.min(100, Math.round((totalSynced + totalErrors) / total * 100));
+                    var processed = totalSynced + totalErrors;
+                    var pct = Math.min(100, Math.round(processed / total * 100));
                     $fill.css('width', pct + '%');
-                    $text.text(totalSynced + ' / ' + total + (totalErrors > 0 ? ' (' + totalErrors + ' errors)' : ''));
+                    $text.html(
+                        '<strong>Synchronisation en cours... ' + pct + '%</strong><br>' +
+                        processed + ' / ' + total + ' produits traités' +
+                        (totalErrors > 0 ? ' <span style="color:#d63638;">(' + totalErrors + ' erreur' + (totalErrors > 1 ? 's' : '') + ')</span>' : '')
+                    );
 
                     if (d.has_more) {
                         page++;
                         syncNextPage();
                     } else {
-                        // Done
-                        $fill.css('width', '100%');
-                        $text.text(totalSynced + ' synced' + (totalErrors > 0 ? ', ' + totalErrors + ' errors' : '') + ' ✓');
+                        // Done — show success summary
+                        $fill.css('width', '100%').addClass('wphoula-progress-fill--done');
+                        var summary = '<strong style="color:#00a32a;">✓ Synchronisation terminée</strong><br>' +
+                            totalSynced + ' produit' + (totalSynced > 1 ? 's' : '') + ' synchronisé' + (totalSynced > 1 ? 's' : '');
+                        if (totalErrors > 0) {
+                            summary += ', <span style="color:#d63638;">' + totalErrors + ' erreur' + (totalErrors > 1 ? 's' : '') + '</span>';
+                        }
+                        $text.html(summary);
                         $btn.prop('disabled', false);
-                        setTimeout(function () { $progress.fadeOut(); }, 5000);
+
+                        // Update counters in the settings table
+                        $('#wphoula-products-synced-count').text(totalSynced);
+                        $('#wphoula-last-full-sync').text(new Date().toLocaleString());
                     }
                 }).fail(function () {
                     $btn.prop('disabled', false);
-                    $text.text(i18n.syncError || 'Error');
+                    $text.html('<strong style="color:#d63638;">Erreur réseau</strong><br>Vérifiez votre connexion et réessayez.');
                 });
             }
 

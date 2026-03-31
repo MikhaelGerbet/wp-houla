@@ -286,14 +286,16 @@ class Wp_Houla_Orders {
      * Used as fallback when no custom mapping is configured.
      */
     private static $default_houla_to_wc = array(
-        'pending'    => 'on-hold',
-        'open_cart'  => 'open-cart',
-        'paid'       => 'processing',
-        'processing' => 'processing',
-        'shipped'    => 'completed',
-        'delivered'  => 'completed',
-        'cancelled'  => 'cancelled',
-        'refunded'   => 'refunded',
+        'pending'             => 'on-hold',
+        'open_cart'           => 'open-cart',
+        'paid'                => 'processing',
+        'processing'          => 'processing',
+        'shipped'             => 'completed',
+        'delivered'           => 'completed',
+        'cancelled'           => 'cancelled',
+        'abandoned'           => 'cancelled',
+        'refunded'            => 'refunded',
+        'partially_refunded'  => 'refunded',
     );
 
     /**

@@ -109,9 +109,10 @@ class AuthTest extends TestCase {
         // Tokens should be encrypted (not stored in plain text).
         $this->assertNotEquals( 'test-access-token', $savedValues['access_token'] );
         $this->assertNotEquals( 'test-refresh-token', $savedValues['refresh_token'] );
-        // Other fields in plain text.
-        $this->assertEquals( 'ws-123', $savedValues['workspace_id'] );
-        $this->assertEquals( 'My Store', $savedValues['workspace_name'] );
+        // Workspace fields are NOT stored by store_tokens() — they are managed
+        // explicitly by the OAuth callback and switch-workspace handler.
+        $this->assertArrayNotHasKey( 'workspace_id', $savedValues );
+        $this->assertArrayNotHasKey( 'workspace_name', $savedValues );
     }
 
     public function test_disconnect_clears_tokens(): void {

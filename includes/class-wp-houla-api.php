@@ -163,7 +163,6 @@ class Wp_Houla_Api {
             $this->log( 'Received 401 on ' . $endpoint );
 
             // If we were using an API key, it may have been revoked
-            // Try falling back to OAuth token refresh
             if ( isset( $auth_headers['X-Api-Key'] ) ) {
                 $this->log( 'API key rejected, clearing stored key and trying token refresh...' );
                 // Clear the revoked key
@@ -173,13 +172,15 @@ class Wp_Houla_Api {
 
             // Attempt OAuth token refresh
             if ( $this->auth->refresh_token() ) {
+                // Re-provision a fresh API key so future calls use it (not the JWT)
+                $this->auth->provision_api_key();
                 return $this->request( $method, $endpoint, $body, $query, $attempt + 1 );
             }
 
             // Both auth methods failed -- mark as disconnected
             $this->log( 'All authentication methods failed. Marking as disconnected.' );
             $this->auth->disconnect();
-            return new WP_Error( 'wphoula_unauthorized', __( 'Authentication failed. Please reconnect.', 'wp-houla' ) );
+            return new WP_Error( 'wphoula_unauthorized', __( 'Echec de l\'authentification. Veuillez vous reconnecter.', 'wp-houla' ) );
         }
 
         // Handle errors

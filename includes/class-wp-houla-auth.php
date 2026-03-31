@@ -196,6 +196,10 @@ class Wp_Houla_Auth {
     /**
      * Store tokens in options (encrypted).
      *
+     * Does NOT update workspace_id / workspace_name — those are managed
+     * explicitly by the OAuth callback and switch-workspace handler to
+     * prevent token refresh from overwriting the user's selected workspace.
+     *
      * @param array $token_data Response from the token endpoint.
      */
     public function store_tokens( array $token_data ) {
@@ -205,8 +209,6 @@ class Wp_Houla_Auth {
             'access_token'     => Wp_Houla_Options::encrypt( $token_data['access_token'] ),
             'refresh_token'    => Wp_Houla_Options::encrypt( $token_data['refresh_token'] ?? '' ),
             'token_expires_at' => time() + $expires_in,
-            'workspace_id'     => $token_data['workspace_id'] ?? '',
-            'workspace_name'   => $token_data['workspace_name'] ?? '',
             'user_email'       => $token_data['user_email'] ?? '',
         ) );
 
@@ -288,6 +290,10 @@ class Wp_Houla_Auth {
 
         // Store tokens
         $this->store_tokens( $result );
+
+        // Store workspace info from initial OAuth connection
+        $this->options->set( 'workspace_id', $result['workspace_id'] ?? '' );
+        $this->options->set( 'workspace_name', $result['workspace_name'] ?? '' );
 
         $this->log( 'Successfully connected to Hou.la workspace: ' . ( $result['workspace_name'] ?? 'unknown' ) );
 

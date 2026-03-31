@@ -209,6 +209,23 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                 </div>
             </div>
 
+            <?php
+            // Suggest mapping categories -> collections if not done yet
+            $cat_map = $options->get( 'category_collection_map' );
+            $has_mapping = is_array( $cat_map ) && ! empty( $cat_map );
+            if ( $is_connected && ! $has_mapping ) :
+            ?>
+            <div class="notice notice-info inline" style="margin: 0 0 16px; padding: 10px 14px; display:flex; align-items:flex-start; gap:8px;" id="wphoula-mapping-suggestion">
+                <span class="dashicons dashicons-info" style="color:#2271b1; margin-top:2px;"></span>
+                <div>
+                    <strong><?php esc_html_e( 'Astuce : associez d\'abord vos catégories', 'wp-houla' ); ?></strong>
+                    <p style="margin:4px 0 0; color:#555;">
+                        <?php esc_html_e( 'Avant de synchroniser vos produits, nous vous recommandons d\'associer vos catégories WooCommerce aux collections Hou.la. Rendez-vous dans la section « Correspondance catégories - collections » ci-dessous et cliquez sur « Créer automatiquement les collections ».', 'wp-houla' ); ?>
+                    </p>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <?php if ( ! $is_connected ) : ?>
                 <p class="description"><?php esc_html_e( 'Connect your account first to configure sync options.', 'wp-houla' ); ?></p>
             <?php else : ?>
@@ -274,44 +291,56 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                             </fieldset>
                         </td>
                     </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Products synced', 'wp-houla' ); ?></th>
-                        <td><strong><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
-                    </tr>
-                    <tr>
-                        <th><?php esc_html_e( 'Last full sync', 'wp-houla' ); ?></th>
-                        <td><?php echo $last_full_sync ? esc_html( $last_full_sync ) : esc_html__( 'Never', 'wp-houla' ); ?></td>
-                    </tr>
                 </table>
 
                 <p>
                     <button type="button" class="button button-primary" id="wphoula-save-settings">
                         <?php esc_html_e( 'Save Settings', 'wp-houla' ); ?>
                     </button>
-
-                    <button type="button" class="button button-secondary" id="wphoula-batch-sync">
-                        <?php esc_html_e( 'Sync Products', 'wp-houla' ); ?>
-                    </button>
-                    <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
-                    <button type="button" class="button" id="wphoula-reset-sync" style="color:#b32d2e;border-color:#b32d2e;">
-                        <?php esc_html_e( 'Reset Sync Data', 'wp-houla' ); ?>
-                    </button>
-                    <?php endif; ?>
-                    <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
                 </p>
-
-                <!-- Progress bar (hidden by default) -->
-                <div id="wphoula-sync-progress" class="wphoula-progress" style="display:none;">
-                    <div class="wphoula-progress-bar">
-                        <div class="wphoula-progress-fill" id="wphoula-progress-fill"></div>
-                    </div>
-                    <p class="wphoula-progress-text" id="wphoula-progress-text"></p>
-                </div>
 
             <?php endif; ?>
         </div>
 
         <?php if ( $is_connected ) : ?>
+        <!-- ============================================================= -->
+        <!-- Lancer la synchronisation                                      -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?></h2>
+
+            <table class="form-table">
+                <tr>
+                    <th><?php esc_html_e( 'Produits synchronisés', 'wp-houla' ); ?></th>
+                    <td><strong id="wphoula-products-synced-count"><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Dernière synchronisation', 'wp-houla' ); ?></th>
+                    <td id="wphoula-last-full-sync"><?php echo $last_full_sync ? esc_html( $last_full_sync ) : esc_html__( 'Jamais', 'wp-houla' ); ?></td>
+                </tr>
+            </table>
+
+            <p>
+                <button type="button" class="button button-primary" id="wphoula-batch-sync">
+                    <?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?>
+                </button>
+                <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
+                <button type="button" class="button" id="wphoula-reset-sync" style="color:#b32d2e;border-color:#b32d2e;">
+                    <?php esc_html_e( 'Réinitialiser la synchronisation', 'wp-houla' ); ?>
+                </button>
+                <?php endif; ?>
+                <span id="wphoula-sync-status" class="wphoula-spinner" style="display:none;"></span>
+            </p>
+
+            <!-- Progress bar (hidden by default) -->
+            <div id="wphoula-sync-progress" class="wphoula-progress" style="display:none;">
+                <div class="wphoula-progress-bar">
+                    <div class="wphoula-progress-fill" id="wphoula-progress-fill"></div>
+                </div>
+                <p class="wphoula-progress-text" id="wphoula-progress-text"></p>
+            </div>
+        </div>
+
         <!-- ============================================================= -->
         <!-- Price adjustment                                               -->
         <!-- ============================================================= -->
@@ -614,14 +643,16 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
             <?php
             // Hou.la statuses available as dropdown options
             $houla_statuses = array(
-                'pending'    => __( 'Pending', 'wp-houla' ),
-                'open_cart'  => __( 'Open Cart', 'wp-houla' ),
-                'paid'       => __( 'Paid', 'wp-houla' ),
-                'processing' => __( 'Processing', 'wp-houla' ),
-                'shipped'    => __( 'Shipped', 'wp-houla' ),
-                'delivered'  => __( 'Delivered', 'wp-houla' ),
-                'cancelled'  => __( 'Cancelled', 'wp-houla' ),
-                'refunded'   => __( 'Refunded', 'wp-houla' ),
+                'pending'              => __( 'Pending', 'wp-houla' ),
+                'open_cart'            => __( 'Open Cart', 'wp-houla' ),
+                'paid'                 => __( 'Paid', 'wp-houla' ),
+                'processing'           => __( 'Processing', 'wp-houla' ),
+                'shipped'              => __( 'Shipped', 'wp-houla' ),
+                'delivered'            => __( 'Delivered', 'wp-houla' ),
+                'cancelled'            => __( 'Cancelled', 'wp-houla' ),
+                'abandoned'            => __( 'Abandoned', 'wp-houla' ),
+                'refunded'             => __( 'Refunded', 'wp-houla' ),
+                'partially_refunded'   => __( 'Partially Refunded', 'wp-houla' ),
             );
 
             // Get all registered WooCommerce statuses
@@ -632,12 +663,15 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
             if ( ! is_array( $status_map ) || empty( $status_map ) ) {
                 // Default mapping
                 $status_map = array(
-                    'wc-on-hold'    => 'pending',
-                    'wc-open-cart'  => 'open_cart',
-                    'wc-processing' => 'processing',
-                    'wc-completed'  => 'delivered',
-                    'wc-cancelled'  => 'cancelled',
-                    'wc-refunded'   => 'refunded',
+                    'wc-pending'        => 'pending',
+                    'wc-on-hold'        => 'pending',
+                    'wc-open-cart'      => 'open_cart',
+                    'wc-processing'     => 'processing',
+                    'wc-completed'      => 'delivered',
+                    'wc-cancelled'      => 'cancelled',
+                    'wc-failed'         => 'cancelled',
+                    'wc-refunded'       => 'refunded',
+                    'wc-checkout-draft' => 'pending',
                 );
             }
             ?>

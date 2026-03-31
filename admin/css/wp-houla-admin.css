@@ -137,10 +137,14 @@
     border-radius: 10px;
     transition: width 0.3s ease;
 }
+.wphoula-progress-fill--done {
+    background: linear-gradient(90deg, #00a32a, #00c853);
+}
 .wphoula-progress-text {
     margin-top: 6px;
     font-size: 13px;
     color: #555;
+    line-height: 1.5;
 }
 
 /* =====================================================================

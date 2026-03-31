@@ -55,11 +55,15 @@ class Wp_Houla_Options {
             'allowed_post_types' => array( 'post', 'page', 'product' ),
             // Order status concordance (wc-slug => houla_status)
             'order_status_map'   => array(
-                'wc-on-hold'    => 'pending',
-                'wc-processing' => 'processing',
-                'wc-completed'  => 'delivered',
-                'wc-cancelled'  => 'cancelled',
-                'wc-refunded'   => 'refunded',
+                'wc-pending'        => 'pending',
+                'wc-on-hold'        => 'pending',
+                'wc-open-cart'      => 'open_cart',
+                'wc-processing'     => 'processing',
+                'wc-completed'      => 'delivered',
+                'wc-cancelled'      => 'cancelled',
+                'wc-failed'         => 'cancelled',
+                'wc-refunded'       => 'refunded',
+                'wc-checkout-draft' => 'pending',
             ),
             // Tracking sync
             'sync_tracking'      => true,
@@ -73,6 +77,46 @@ class Wp_Houla_Options {
         ) );
 
         $this->_options = wp_parse_args( get_option( WPHOULA_OPTIONS, array() ), $defaults );
+
+        // Migrate: ensure order_status_map contains all required native WC statuses.
+        // wp_parse_args does NOT merge nested arrays, so existing installs may be missing
+        // statuses added in later versions (open-cart, pending, failed, checkout-draft).
+        $this->ensure_required_status_mappings();
+    }
+
+    /**
+     * Add any missing native WC status mappings without overwriting user customizations.
+     */
+    private function ensure_required_status_mappings() {
+        $required = array(
+            'wc-pending'        => 'pending',
+            'wc-on-hold'        => 'pending',
+            'wc-open-cart'      => 'open_cart',
+            'wc-processing'     => 'processing',
+            'wc-completed'      => 'delivered',
+            'wc-cancelled'      => 'cancelled',
+            'wc-failed'         => 'cancelled',
+            'wc-refunded'       => 'refunded',
+            'wc-checkout-draft' => 'pending',
+        );
+
+        $map = $this->_options['order_status_map'];
+        if ( ! is_array( $map ) ) {
+            $map = array();
+        }
+
+        $changed = false;
+        foreach ( $required as $wc_slug => $houla_status ) {
+            if ( ! array_key_exists( $wc_slug, $map ) ) {
+                $map[ $wc_slug ] = $houla_status;
+                $changed = true;
+            }
+        }
+
+        if ( $changed ) {
+            $this->_options['order_status_map'] = $map;
+            update_option( WPHOULA_OPTIONS, $this->_options );
+        }
     }
 
     /**

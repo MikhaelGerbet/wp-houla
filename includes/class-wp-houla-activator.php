@@ -30,8 +30,12 @@ class Wp_Houla_Activator {
         $options = get_option( WPHOULA_OPTIONS, array() );
         if ( empty( $options['webhook_secret'] ) ) {
             $options['webhook_secret'] = wp_generate_password( 64, false );
-            update_option( WPHOULA_OPTIONS, $options );
         }
+
+        // Migrate order status mapping: add missing native WC statuses
+        self::migrate_order_status_map( $options );
+
+        update_option( WPHOULA_OPTIONS, $options );
 
         // Ensure log directory exists
         $log_dir = WPHOULA_DIR . '/log';
@@ -42,5 +46,36 @@ class Wp_Houla_Activator {
 
         // Flush rewrite rules so the REST endpoint is accessible
         flush_rewrite_rules();
+    }
+
+    /**
+     * Ensure the order_status_map contains all native WC statuses.
+     * Only adds missing entries — never overwrites user's custom mappings.
+     *
+     * @param array &$options Plugin options (by reference).
+     */
+    private static function migrate_order_status_map( array &$options ) {
+        $required = array(
+            'wc-pending'        => 'pending',
+            'wc-on-hold'        => 'pending',
+            'wc-open-cart'      => 'open_cart',
+            'wc-processing'     => 'processing',
+            'wc-completed'      => 'delivered',
+            'wc-cancelled'      => 'cancelled',
+            'wc-failed'         => 'cancelled',
+            'wc-refunded'       => 'refunded',
+            'wc-checkout-draft' => 'pending',
+        );
+
+        if ( ! isset( $options['order_status_map'] ) || ! is_array( $options['order_status_map'] ) ) {
+            $options['order_status_map'] = $required;
+            return;
+        }
+
+        foreach ( $required as $wc_slug => $houla_status ) {
+            if ( ! array_key_exists( $wc_slug, $options['order_status_map'] ) ) {
+                $options['order_status_map'][ $wc_slug ] = $houla_status;
+            }
+        }
     }
 }

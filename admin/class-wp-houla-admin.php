@@ -284,6 +284,13 @@ class Wp_Houla_Admin {
         // Store new tokens + workspace info
         $this->auth->store_tokens( $body );
 
+        // Safety net: ensure workspace_id is stored from the known value,
+        // even if the API response didn't include it.
+        $this->options->set( 'workspace_id', $body['workspace_id'] ?? $workspace_id );
+        if ( ! empty( $body['workspace_name'] ) ) {
+            $this->options->set( 'workspace_name', $body['workspace_name'] );
+        }
+
         // Clear old API key and re-provision for the new workspace
         $this->options->set( 'api_key', '' );
         $this->auth->provision_api_key();
@@ -416,7 +423,7 @@ class Wp_Houla_Admin {
         // Order status concordance map (wc_slug => houla_status)
         $order_status_map = array();
         if ( isset( $_POST['order_status_map'] ) && is_array( $_POST['order_status_map'] ) ) {
-            $valid_houla = array( 'pending', 'open_cart', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded' );
+            $valid_houla = array( 'pending', 'open_cart', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'abandoned', 'refunded', 'partially_refunded' );
             foreach ( $_POST['order_status_map'] as $wc_slug => $houla_status ) {
                 $wc_slug      = sanitize_text_field( $wc_slug );
                 $houla_status = sanitize_key( $houla_status );
@@ -739,6 +746,7 @@ class Wp_Houla_Admin {
     /**
      * AJAX: Reset all sync metadata.
      * Clears _wphoula_product_id, _wphoula_synced, _wphoula_sync_at from all products
+     * AND deletes matching products on the Hou.la API (bulk-delete)
      * so the next batch sync will re-create them cleanly on Hou.la.
      */
     public function ajax_reset_sync() {
@@ -750,24 +758,53 @@ class Wp_Houla_Admin {
 
         global $wpdb;
 
-        $deleted = $wpdb->query(
+        // Step 1: Delete all synced products on Hou.la API
+        $api_deleted = 0;
+        $api_errors  = array();
+        if ( $this->auth->is_connected() ) {
+            $api    = new \Wp_Houla_Api();
+            $result = $api->delete( '/ecommerce/products' );
+            if ( is_wp_error( $result ) ) {
+                $api_errors[] = $result->get_error_message();
+            } elseif ( isset( $result['deleted'] ) ) {
+                $api_deleted = (int) $result['deleted'];
+            }
+        }
+
+        // Step 2: Clear local metadata
+        $local_deleted = $wpdb->query(
             "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_wphoula_product_id', '_wphoula_synced', '_wphoula_sync_at')"
         );
 
         // Reset counters
         $this->options->set( 'products_synced', 0 );
         $this->options->set( 'last_full_sync', '' );
+        $this->options->set( 'category_collection_map', array() );
 
-        // Delete the batch sync lock transient
+        // Delete batch sync transients
         delete_transient( 'wphoula_batch_sync_lock' );
+        delete_transient( 'wphoula_batch_running_synced' );
+        delete_transient( 'wphoula_batch_running_errors' );
+
+        $message = sprintf(
+            /* translators: %1$d: local entries, %2$d: API products deleted */
+            __( 'Reset complete: %1$d local entries cleared, %2$d products deleted on Hou.la.', 'wp-houla' ),
+            $local_deleted,
+            $api_deleted
+        );
+        if ( ! empty( $api_errors ) ) {
+            $message .= ' ' . sprintf(
+                /* translators: %s: error messages */
+                __( 'API errors: %s', 'wp-houla' ),
+                implode( '; ', $api_errors )
+            );
+        }
 
         wp_send_json_success( array(
-            'message' => sprintf(
-                /* translators: %d: number of meta entries deleted */
-                __( 'Sync data reset (%d entries cleared). You can now re-sync your products.', 'wp-houla' ),
-                $deleted
-            ),
-            'cleared' => $deleted,
+            'message'       => $message,
+            'local_cleared' => $local_deleted,
+            'api_deleted'   => $api_deleted,
+            'api_errors'    => $api_errors,
         ) );
     }
 
@@ -1103,6 +1140,11 @@ class Wp_Houla_Admin {
      * Render the settings page.
      */
     public function render_settings_page() {
+        // Auto-repair: re-provision API key if connected but key is missing
+        if ( $this->auth->is_connected() && ! $this->auth->get_api_key() ) {
+            $this->auth->provision_api_key();
+        }
+
         $options = $this->options;
         $auth    = $this->auth;
         include plugin_dir_path( __FILE__ ) . 'partials/settings-page.php';

@@ -287,9 +287,11 @@ class Wp_Houla_Sync {
             return array( 'synced' => 0, 'errors' => 0, 'page' => $page, 'has_more' => false, 'message' => 'Not connected' );
         }
 
-        // Register connection on first page only
+        // Register connection on first page only and reset running counters
         if ( $page === 1 ) {
             $this->register_connection();
+            set_transient( 'wphoula_batch_running_synced', 0, HOUR_IN_SECONDS );
+            set_transient( 'wphoula_batch_running_errors', 0, HOUR_IN_SECONDS );
         }
 
         $limit = 20;
@@ -328,11 +330,20 @@ class Wp_Houla_Sync {
             $synced++;
         }
 
+        // Accumulate running totals across pages
+        $running_synced = (int) get_transient( 'wphoula_batch_running_synced' ) + $synced;
+        $running_errors = (int) get_transient( 'wphoula_batch_running_errors' ) + $errors;
+        set_transient( 'wphoula_batch_running_synced', $running_synced, HOUR_IN_SECONDS );
+        set_transient( 'wphoula_batch_running_errors', $running_errors, HOUR_IN_SECONDS );
+
         $has_more = count( $products ) === $limit;
 
-        // Update counters on last page
+        // On last page: persist final counts to options
         if ( ! $has_more ) {
+            $this->options->set( 'products_synced', $running_synced );
             $this->options->set( 'last_full_sync', current_time( 'mysql' ) );
+            delete_transient( 'wphoula_batch_running_synced' );
+            delete_transient( 'wphoula_batch_running_errors' );
         }
 
         return array( 'synced' => $synced, 'errors' => $errors, 'page' => $page, 'has_more' => $has_more );
@@ -645,14 +656,17 @@ class Wp_Houla_Sync {
      * Used as fallback when no custom mapping is configured.
      */
     private static $default_wc_to_houla = array(
-        'on-hold'    => 'pending',
-        'open-cart'  => 'open_cart',
-        'processing' => 'processing',
-        'completed'  => 'delivered',
-        'cancelled'  => 'cancelled',
-        'refunded'   => 'refunded',
-        'trash'      => 'cancelled',
-        'deleted'    => 'cancelled',
+        'pending'        => 'pending',
+        'on-hold'        => 'pending',
+        'open-cart'      => 'open_cart',
+        'processing'     => 'processing',
+        'completed'      => 'delivered',
+        'cancelled'      => 'cancelled',
+        'failed'         => 'cancelled',
+        'refunded'       => 'refunded',
+        'checkout-draft' => 'pending',
+        'trash'          => 'cancelled',
+        'deleted'        => 'cancelled',
     );
 
     /**
