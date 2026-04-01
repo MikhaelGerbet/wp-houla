@@ -300,10 +300,10 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                         <p class="description" style="font-weight:normal;"><?php esc_html_e( 'GTIN-8, GTIN-12 (UPC), GTIN-13 (EAN-13), GTIN-14', 'wp-houla' ); ?></p>
                     </th>
                     <td>
-                        <select id="wphoula-id-meta-ean" class="wphoula-id-meta-select" data-id-key="gtin" style="min-width: 320px;">
+                        <select id="wphoula-id-meta-gtin" class="wphoula-id-meta-select" data-id-key="gtin" style="min-width: 320px;">
                             <option value=""><?php esc_html_e( '— Not configured —', 'wp-houla' ); ?></option>
                         </select>
-                        <input type="hidden" id="wphoula-id-meta-ean-saved" value="<?php echo esc_attr( $id_meta_map['gtin'] ?? '' ); ?>">
+                        <input type="hidden" id="wphoula-id-meta-gtin-saved" value="<?php echo esc_attr( $id_meta_map['gtin'] ?? '' ); ?>">
                         <span class="wphoula-id-meta-loading" style="display:none;">
                             <span class="spinner is-active" style="float:none; margin:0 4px;"></span>
                         </span>

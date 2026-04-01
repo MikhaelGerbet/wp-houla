@@ -136,9 +136,23 @@
     background: linear-gradient(90deg, #667eea, #764ba2);
     border-radius: 10px;
     transition: width 0.3s ease;
+    background-size: 30px 30px;
+    background-image: linear-gradient(
+        135deg,
+        rgba(255,255,255,.2) 25%, transparent 25%,
+        transparent 50%, rgba(255,255,255,.2) 50%,
+        rgba(255,255,255,.2) 75%, transparent 75%,
+        transparent
+    );
+    animation: wphoula-progress-stripes 1s linear infinite;
+}
+@keyframes wphoula-progress-stripes {
+    0%   { background-position: 30px 0; }
+    100% { background-position: 0 0; }
 }
 .wphoula-progress-fill--done {
     background: linear-gradient(90deg, #00a32a, #00c853);
+    animation: none;
 }
 .wphoula-progress-text {
     margin-top: 6px;

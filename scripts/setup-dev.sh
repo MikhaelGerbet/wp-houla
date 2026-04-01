@@ -249,165 +249,12 @@ CAT_TSHIRTS=$(get_or_create_cat "T-shirts" "t-shirts" "$CAT_VETEMENTS")
 CAT_SWEATS=$(get_or_create_cat "Sweats & Pulls" "sweats-pulls" "$CAT_VETEMENTS")
 
 # ──────────────────────────────────────────────────────────────
-# 7. Create sample products (22 products, varied prices/stock)
+# 7. Create sample products (25 products with images, EAN, weights…)
+#    Uses a single PHP execution (no per-product WP-CLI bootstrap)
+#    Images are generated locally via GD (no network download)
 # ──────────────────────────────────────────────────────────────
-echo "→ Creating sample products..."
-
-create_product() {
-  local name="$1"
-  local price="$2"
-  local sku="$3"
-  local desc="$4"
-  local cat_id="$5"
-  local stock="${6:-50}"
-  local sale_price="$7"
-  local weight="$8"
-
-  # Check if already exists
-  local existing_id=$($WP post list --post_type=product --meta_key=_sku --meta_value="$sku" --field=ID --format=csv 2>/dev/null | head -1)
-  if [ -n "$existing_id" ] && [ "$existing_id" -gt "0" ] 2>/dev/null; then
-    # Product exists — ensure category is assigned
-    if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
-      $WP post term set "$existing_id" product_cat "$cat_id" --by=id 2>/dev/null || true
-    fi
-    echo "  ✓ $name (exists, cat reassigned)"
-    return
-  fi
-
-  # Build command with categories included at creation time
-  local cmd="$WP wc product create --user=$ADMIN_ID"
-  cmd="$cmd --name=\"$name\" --regular_price=$price --sku=$sku"
-  cmd="$cmd --status=publish --manage_stock=true --stock_quantity=$stock"
-
-  if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
-    cmd="$cmd --categories='[{\"id\":$cat_id}]'"
-  fi
-  if [ -n "$sale_price" ]; then
-    cmd="$cmd --sale_price=$sale_price"
-  fi
-  if [ -n "$weight" ]; then
-    cmd="$cmd --weight=$weight"
-  fi
-
-  cmd="$cmd --porcelain"
-
-  local id=$(eval $cmd 2>/dev/null || echo "")
-
-  if [ -n "$id" ] && [ "$id" -gt "0" ] 2>/dev/null; then
-    # Set description
-    $WP post update "$id" --post_excerpt="$desc" 2>/dev/null || true
-    # Fallback: also assign via wp post term set in case --categories didn't work
-    if [ -n "$cat_id" ] && [ "$cat_id" -gt "0" ] 2>/dev/null; then
-      $WP post term set "$id" product_cat "$cat_id" --by=id 2>/dev/null || true
-    fi
-    local dp="$price€"
-    if [ -n "$sale_price" ]; then dp="${sale_price}€ (was ${price}€)"; fi
-    echo "  ✓ $name — $sku — $dp — stock:$stock"
-  else
-    echo "  ⚠ Failed: $name"
-  fi
-}
-
-# --- Bracelets (3) ---
-create_product "Bracelet Perles Naturelles" "29.90" "BPN-001" \
-  "Bracelet en perles naturelles fait main, taille ajustable. Pierre: agate bleue." \
-  "$CAT_BRACELETS" 50 "" "0.05"
-
-create_product "Bracelet Jonc Doré" "39.00" "BJD-002" \
-  "Bracelet jonc en plaqué or 18 carats, diamètre 6cm. Finition polie miroir." \
-  "$CAT_BRACELETS" 30 "29.00" "0.03"
-
-create_product "Bracelet Cuir Tressé Homme" "25.00" "BCT-003" \
-  "Bracelet en cuir véritable tressé avec fermoir magnétique acier. 21cm." \
-  "$CAT_BRACELETS" 80 "" "0.04"
-
-# --- Colliers (3) ---
-create_product "Collier Lune Dorée" "45.00" "CLD-004" \
-  "Collier pendentif lune en plaqué or, chaîne 45cm réglable." \
-  "$CAT_COLLIERS" 25 "" "0.02"
-
-create_product "Collier Perle Baroque" "65.00" "CPB-005" \
-  "Collier perle baroque eau douce sur chaîne argent 925. Pièce unique." \
-  "$CAT_COLLIERS" 10 "52.00" "0.03"
-
-create_product "Chaîne Maille Figaro" "35.00" "CMF-006" \
-  "Chaîne maille figaro acier inoxydable doré, 50cm." \
-  "$CAT_COLLIERS" 60 "" "0.04"
-
-# --- Bagues (2) ---
-create_product "Bague Fleur de Lotus" "19.90" "BFL-007" \
-  "Bague ajustable argent 925, motif fleur de lotus. Taille 48-56." \
-  "$CAT_BAGUES" 45 "" "0.01"
-
-create_product "Bague Chevalière Onyx" "55.00" "BCO-008" \
-  "Chevalière homme acier inoxydable, pierre onyx noire. Taille 60-68." \
-  "$CAT_BAGUES" 20 "" "0.02"
-
-# --- Boucles d'oreilles (2) ---
-create_product "Boucles Étoiles Argent" "24.50" "BEA-009" \
-  "Boucles oreilles étoiles argent 925. Fermoir poussette." \
-  "$CAT_BOUCLES" 40 "" "0.01"
-
-create_product "Créoles Dorées Larges" "32.00" "CDL-010" \
-  "Créoles plaqué or diamètre 4cm. Style minimaliste chic." \
-  "$CAT_BOUCLES" 35 "24.00" "0.01"
-
-# --- Sacs & Pochettes (3) ---
-create_product "Pochette Velours Noir" "15.00" "PVN-011" \
-  "Pochette cadeau velours noir avec cordon doré. 12x9cm." \
-  "$CAT_SACS" 200 "" "0.02"
-
-create_product "Sac Bandoulière Cuir" "89.00" "SBC-012" \
-  "Sac bandoulière cuir grainé. 22x15x6cm. Bandoulière réglable." \
-  "$CAT_SACS" 15 "69.00" "0.35"
-
-create_product "Trousse Maquillage Fleurie" "18.50" "TMF-013" \
-  "Trousse toilette motif floral, doublure imperméable. 20x12x8cm." \
-  "$CAT_SACS" 55 "" "0.08"
-
-# --- Écharpes & Foulards (2) ---
-create_product "Foulard Soie Imprimé" "42.00" "FSI-014" \
-  "Foulard 100% soie, imprimé géométrique. 90x90cm. Made in France." \
-  "$CAT_ECHARPES" 20 "" "0.06"
-
-create_product "Écharpe Laine Mérinos" "55.00" "ELM-015" \
-  "Écharpe laine mérinos extra-fine. 180x30cm. Coloris gris chiné." \
-  "$CAT_ECHARPES" 12 "39.90" "0.12"
-
-# --- T-shirts (2) ---
-create_product "T-shirt Coton Bio Blanc" "28.00" "TCB-016" \
-  "T-shirt unisexe coton bio GOTS. Col rond, coupe droite." \
-  "$CAT_TSHIRTS" 100 "" "0.18"
-
-create_product "T-shirt Oversize Noir" "32.00" "TON-017" \
-  "T-shirt oversize unisexe noir, coton 220g. Logo minimaliste." \
-  "$CAT_TSHIRTS" 75 "" "0.22"
-
-# --- Sweats & Pulls (2) ---
-create_product "Sweat Capuche Bleu Marine" "59.00" "SCB-018" \
-  "Sweat capuche unisexe molleton brossé. Poche kangourou. 300g." \
-  "$CAT_SWEATS" 40 "" "0.45"
-
-create_product "Pull Col Roulé Crème" "49.90" "PCC-019" \
-  "Pull col roulé maille fine, laine recyclée. Coupe Regular." \
-  "$CAT_SWEATS" 0 "" "0.30"
-
-# --- Maison & Déco (3) ---
-create_product "Bougie Parfumée Ambre" "22.00" "BPA-020" \
-  "Bougie artisanale ambre et bois de santal. Cire soja. 180g, 40h." \
-  "$CAT_MAISON" 90 "" "0.25"
-
-create_product "Diffuseur Huiles Essentielles" "38.00" "DHE-021" \
-  "Diffuseur céramique blanche, bâtonnets rotin. Lavande. 200ml." \
-  "$CAT_MAISON" 25 "29.90" "0.40"
-
-create_product "Mug Artisanal Grès" "16.00" "MAG-022" \
-  "Mug grès émaillé fait main, 350ml. Compatible lave-vaisselle." \
-  "$CAT_MAISON" 65 "" "0.35"
-
-# Force WooCommerce to recount products per category
-echo "→ Recounting category products..."
-$WP term recount product_cat 2>/dev/null || true
+SEED_PHP="/var/www/html/wp-content/plugins/wp-houla/scripts/seed-products.php"
+php -d memory_limit=256M /usr/local/bin/wp --allow-root --path=/var/www/html eval-file "$SEED_PHP"
 
 # ──────────────────────────────────────────────────────────────
 # 8. Create test customers
@@ -532,7 +379,7 @@ echo "    Accessoires → Sacs & Pochettes, Écharpes & Foulards"
 echo "    Vêtements → T-shirts, Sweats & Pulls"
 echo "    Maison & Déco"
 echo ""
-echo "  Products (22): prices 15€–89€, 6 on sale, 1 out of stock"
+echo "  Products (25): prices 4,90€–89€, 6 on sale, 2 out of stock, 2 virtual, images+EAN on all"
 echo ""
 echo "  Next steps:"
 echo "  1. Start l'API en local :  cd api && npm run start"
