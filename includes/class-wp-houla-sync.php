@@ -1047,6 +1047,44 @@ class Wp_Houla_Sync {
     }
 
     /**
+     * Pull orders from the Hou.la API and create/update them in WooCommerce.
+     *
+     * Triggers the API to re-push all recent orders via webhooks.
+     * Thanks to the upsert logic in create_order(), existing WC orders
+     * will be updated (items replaced) and missing ones will be created.
+     *
+     * @param string $filter 'all' | 'failed' — which orders to re-push.
+     * @return array { succeeded: int, failed: int, total: int, message: string }
+     */
+    public function pull_orders_from_api( $filter = 'all' ) {
+        if ( ! $this->auth->is_connected() ) {
+            return array( 'succeeded' => 0, 'failed' => 0, 'total' => 0, 'message' => 'Not connected' );
+        }
+
+        $endpoint = ( $filter === 'failed' ) ? '/ecommerce/orders/resync-failed' : '/ecommerce/orders/resync-all';
+        $result = $this->api->post( $endpoint );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Pull orders from API failed: ' . $result->get_error_message() );
+            return array(
+                'succeeded' => 0,
+                'failed'    => 0,
+                'total'     => 0,
+                'message'   => $result->get_error_message(),
+            );
+        }
+
+        $this->log( 'Pull orders from API: ' . ( $result['succeeded'] ?? 0 ) . ' succeeded, ' . ( $result['failed'] ?? 0 ) . ' failed out of ' . ( $result['total'] ?? 0 ) . '.' );
+
+        return array(
+            'succeeded' => $result['succeeded'] ?? 0,
+            'failed'    => $result['failed'] ?? 0,
+            'total'     => $result['total'] ?? 0,
+            'message'   => 'OK',
+        );
+    }
+
+    /**
      * Count Hou.la orders by sync status.
      *
      * @return array { total: int, synced: int, failed: int, pending: int }
@@ -1096,6 +1134,131 @@ class Wp_Houla_Sync {
             'failed'  => $failed,
             'pending' => max( 0, $total - $synced - $failed ),
         );
+    }
+
+    // =====================================================================
+    // Pull orders from Hou.la → WooCommerce
+    // =====================================================================
+
+    /**
+     * Pull orders from Hou.la API and create/update them in WooCommerce.
+     * This is the reverse of webhook push: useful when webhooks were missed
+     * (e.g. WooCommerce server was down).
+     *
+     * @param string $since  ISO date — only pull orders updated after this date. Empty = all.
+     * @return array { created: int, updated: int, failed: int, total: int, errors: string[] }
+     */
+    public function pull_orders_from_houla( $since = '' ) {
+        if ( ! $this->auth->is_connected() ) {
+            return array( 'created' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'errors' => array( 'Not connected' ) );
+        }
+
+        // Fetch orders from the API
+        $query = array( 'limit' => '200' );
+        if ( ! empty( $since ) ) {
+            $query['since'] = $since;
+        }
+
+        $result = $this->api->get( '/ecommerce/orders', $query );
+
+        if ( is_wp_error( $result ) ) {
+            $this->log( 'Pull orders failed: ' . $result->get_error_message() );
+            return array( 'created' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'errors' => array( $result->get_error_message() ) );
+        }
+
+        if ( empty( $result['orders'] ) || ! is_array( $result['orders'] ) ) {
+            return array( 'created' => 0, 'updated' => 0, 'failed' => 0, 'total' => 0, 'errors' => array() );
+        }
+
+        $orders_handler = new Wp_Houla_Orders();
+        $created = 0;
+        $updated = 0;
+        $failed  = 0;
+        $errors  = array();
+
+        foreach ( $result['orders'] as $order_data ) {
+            if ( empty( $order_data['houla_order_id'] ) ) {
+                continue;
+            }
+
+            try {
+                // Build the payload in webhook format for create_order/update_order
+                $payload = $this->format_houla_order_for_wc( $order_data );
+
+                // Check if order already exists in WC
+                $existing = $orders_handler->find_order_by_houla_id( $order_data['houla_order_id'] );
+
+                if ( $existing ) {
+                    // Update existing order
+                    $res = $orders_handler->update_order( $payload );
+                    if ( is_wp_error( $res ) ) {
+                        $failed++;
+                        $errors[] = 'Update ' . $order_data['houla_order_id'] . ': ' . $res->get_error_message();
+                    } else {
+                        $updated++;
+                    }
+                } else {
+                    // Create new order
+                    $res = $orders_handler->create_order( $payload );
+                    if ( is_wp_error( $res ) ) {
+                        $failed++;
+                        $errors[] = 'Create ' . $order_data['houla_order_id'] . ': ' . $res->get_error_message();
+                    } else {
+                        $created++;
+                    }
+                }
+            } catch ( \Throwable $e ) {
+                $failed++;
+                $errors[] = $order_data['houla_order_id'] . ': ' . $e->getMessage();
+                $this->log( 'Pull order error: ' . $e->getMessage() );
+            }
+        }
+
+        // Update last pull timestamp
+        $this->options->set( 'last_order_pull', current_time( 'mysql' ) );
+
+        $this->log( "Pull orders complete: $created created, $updated updated, $failed failed." );
+
+        return array(
+            'created' => $created,
+            'updated' => $updated,
+            'failed'  => $failed,
+            'total'   => count( $result['orders'] ),
+            'errors'  => $errors,
+        );
+    }
+
+    /**
+     * Format the Hou.la order API response into the same structure
+     * that the webhook handler expects.
+     *
+     * @param array $order_data Order data from GET /api/ecommerce/orders.
+     * @return array Formatted payload for Wp_Houla_Orders::create_order().
+     */
+    private function format_houla_order_for_wc( $order_data ) {
+        $payload = array(
+            'houla_order_id' => $order_data['houla_order_id'],
+            'transaction_id' => isset( $order_data['transaction_id'] ) ? $order_data['transaction_id'] : '',
+            'customer'       => isset( $order_data['customer'] ) ? $order_data['customer'] : array(),
+            'items'          => isset( $order_data['items'] ) ? $order_data['items'] : array(),
+            'shipping'       => isset( $order_data['shipping'] ) ? $order_data['shipping'] : null,
+            'total'          => isset( $order_data['total'] ) ? $order_data['total'] : 0,
+            'currency'       => isset( $order_data['currency'] ) ? $order_data['currency'] : 'EUR',
+            'paid_at'        => isset( $order_data['paid_at'] ) ? $order_data['paid_at'] : '',
+            'wc_status'      => isset( $order_data['wc_status'] ) ? $order_data['wc_status'] : 'processing',
+        );
+
+        // Map items: the API uses 'product_id' but WC expects 'external_id'
+        if ( ! empty( $payload['items'] ) ) {
+            foreach ( $payload['items'] as &$item ) {
+                if ( ! isset( $item['external_id'] ) && isset( $item['product_id'] ) ) {
+                    $item['external_id'] = $item['product_id'];
+                }
+            }
+            unset( $item );
+        }
+
+        return $payload;
     }
 
     // =====================================================================

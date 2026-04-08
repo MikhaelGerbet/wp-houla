@@ -34,8 +34,8 @@ class Wp_Houla_Admin {
      * @param string $hook Current admin page.
      */
     public function enqueue_styles( $hook ) {
-        // Load on our settings page + any post edit screen + dashboard + post list
-        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook || 'edit.php' === $hook ) {
+        // Load on our settings page + any post edit screen + dashboard + post list + WC orders (HPOS)
+        if ( $this->is_our_page( $hook ) || $this->is_post_edit( $hook ) || 'index.php' === $hook || 'edit.php' === $hook || $this->is_wc_orders_page( $hook ) ) {
             wp_enqueue_style(
                 'wp-houla-admin',
                 WPHOULA_URL . 'admin/css/wp-houla-admin.css',
@@ -867,6 +867,32 @@ class Wp_Houla_Admin {
         } catch ( \Throwable $e ) {
             wp_send_json_error( 'Error: ' . $e->getMessage() );
         }
+    }
+
+    /**
+     * AJAX: Pull orders from Hou.la API to create/update WC orders.
+     * Triggers the API to re-push all orders via webhooks.
+     */
+    public function ajax_pull_orders_from_houla() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $filter = isset( $_POST['filter'] ) ? sanitize_text_field( $_POST['filter'] ) : 'all';
+        if ( ! in_array( $filter, array( 'all', 'failed' ), true ) ) {
+            $filter = 'all';
+        }
+
+        $sync   = new Wp_Houla_Sync();
+        $result = $sync->pull_orders_from_api( $filter );
+
+        if ( $result['message'] !== 'OK' ) {
+            wp_send_json_error( $result['message'] );
+        }
+
+        wp_send_json_success( $result );
     }
 
     // =====================================================================

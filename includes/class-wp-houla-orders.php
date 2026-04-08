@@ -187,7 +187,43 @@ class Wp_Houla_Orders {
             if ( ! empty( $data['total'] ) ) {
                 $order->set_total( floatval( $data['total'] ) );
             }
-            $order->set_status( 'processing', __( 'Order received via Hou.la Pay.', 'wp-houla' ) );
+
+            // Use the WC status from the webhook payload if available (respects open-cart vs processing)
+            $initial_status = ! empty( $data['wc_status'] ) ? sanitize_text_field( $data['wc_status'] ) : 'processing';
+            $order->set_status( $initial_status, __( 'Order received via Hou.la Pay.', 'wp-houla' ) );
+
+            // Add detailed order note with full item breakdown
+            $note_lines = array();
+            $note_lines[] = __( 'Commande reçue de Hou.la Pay.', 'wp-houla' );
+            $note_lines[] = '';
+            $customer = isset( $data['customer'] ) ? $data['customer'] : array();
+            if ( ! empty( $customer['email'] ) ) {
+                $name_parts = array_filter( array(
+                    isset( $customer['first_name'] ) ? $customer['first_name'] : '',
+                    isset( $customer['last_name'] ) ? $customer['last_name'] : '',
+                ) );
+                $note_lines[] = 'Client : ' . ( ! empty( $name_parts ) ? implode( ' ', $name_parts ) . ' — ' : '' ) . sanitize_email( $customer['email'] );
+            }
+            $note_lines[] = '';
+            foreach ( $data['items'] as $item ) {
+                $item_name  = ! empty( $item['name'] ) ? sanitize_text_field( $item['name'] ) : 'Product #' . absint( $item['external_id'] );
+                $qty        = max( 1, absint( $item['quantity'] ) );
+                $price      = isset( $item['price'] ) ? number_format( floatval( $item['price'] ), 2, ',', '' ) . ' €' : '-';
+                $line_total = isset( $item['price'] ) ? number_format( floatval( $item['price'] ) * $qty, 2, ',', '' ) . ' €' : '-';
+                $note_lines[] = '• ' . $item_name . ' — x' . $qty . ' — ' . $price . '/u — Total: ' . $line_total;
+            }
+            if ( ! empty( $data['shipping']['amount'] ) ) {
+                $note_lines[] = '';
+                $note_lines[] = 'Frais de port : ' . number_format( floatval( $data['shipping']['amount'] ), 2, ',', '' ) . ' €';
+            }
+            if ( ! empty( $data['total'] ) ) {
+                $note_lines[] = 'Total : ' . number_format( floatval( $data['total'] ), 2, ',', '' ) . ' €';
+            }
+            if ( ! empty( $data['transaction_id'] ) ) {
+                $note_lines[] = 'Réf. paiement : ' . sanitize_text_field( $data['transaction_id'] );
+            }
+            $order->add_order_note( implode( "\n", $note_lines ) );
+
             $order->save();
 
             // Update counters
@@ -321,8 +357,41 @@ class Wp_Houla_Orders {
                 $order->set_total( floatval( $data['total'] ) );
             }
 
-            $order->add_order_note( __( 'Order items updated via Hou.la sync.', 'wp-houla' ) );
+            // Update WC status if the payload carries a Hou.la status (e.g. open-cart vs processing)
+            if ( ! empty( $data['wc_status'] ) ) {
+                $new_wc_status = sanitize_text_field( $data['wc_status'] );
+                if ( $order->get_status() !== $new_wc_status ) {
+                    $order->update_meta_data( '_houla_skip_sync', '1' );
+                    $order->set_status( $new_wc_status, __( 'Status updated via Hou.la sync.', 'wp-houla' ) );
+                }
+            }
+
+            // Build detailed order note with item breakdown
+            $note_lines = array();
+            $note_lines[] = __( 'Commande reçue de Hou.la Pay. Order items updated via Hou.la sync.', 'wp-houla' );
+            $note_lines[] = '';
+            foreach ( $data['items'] as $item ) {
+                $item_name = ! empty( $item['name'] ) ? sanitize_text_field( $item['name'] ) : 'Product #' . absint( $item['external_id'] );
+                $qty       = max( 1, absint( $item['quantity'] ) );
+                $price     = isset( $item['price'] ) ? number_format( floatval( $item['price'] ), 2, ',', '' ) . ' €' : '-';
+                $line_total = isset( $item['price'] ) ? number_format( floatval( $item['price'] ) * $qty, 2, ',', '' ) . ' €' : '-';
+                $note_lines[] = '• ' . $item_name . ' — x' . $qty . ' — ' . $price . '/u — Total: ' . $line_total;
+            }
+            if ( ! empty( $data['shipping']['amount'] ) ) {
+                $note_lines[] = '';
+                $note_lines[] = 'Frais de port : ' . number_format( floatval( $data['shipping']['amount'] ), 2, ',', '' ) . ' €';
+            }
+            if ( ! empty( $data['total'] ) ) {
+                $note_lines[] = 'Total : ' . number_format( floatval( $data['total'] ), 2, ',', '' ) . ' €';
+            }
+            $order->add_order_note( implode( "\n", $note_lines ) );
             $order->save();
+
+            // Clear skip-sync flag if it was set
+            if ( $order->get_meta( '_houla_skip_sync' ) === '1' ) {
+                $order->delete_meta_data( '_houla_skip_sync' );
+                $order->save_meta_data();
+            }
 
             $this->log( 'Order updated: WC #' . $order_id . ' from Hou.la ' . $data['houla_order_id'] . ' (' . count( $data['items'] ) . ' items).' );
 
@@ -482,16 +551,29 @@ class Wp_Houla_Orders {
         // so the woocommerce_order_status_changed hook should NOT send it back)
         $order->update_meta_data( '_houla_skip_sync', '1' );
 
-        $order->set_status( $wc_status, __( 'Status updated via Hou.la.', 'wp-houla' ) );
+        // Build detailed status note
+        $status_label = ucfirst( str_replace( '-', ' ', $wc_status ) );
+        $note_lines   = array();
+        $note_lines[] = sprintf(
+            __( 'Statut modifié via Hou.la : %s → %s.', 'wp-houla' ),
+            ucfirst( str_replace( '-', ' ', $order->get_status() ) ),
+            $status_label
+        );
 
         // Store carrier/tracking if provided
         if ( ! empty( $data['carrier'] ) ) {
             $order->update_meta_data( '_houla_carrier', sanitize_text_field( $data['carrier'] ) );
+            $note_lines[] = 'Transporteur : ' . sanitize_text_field( $data['carrier'] );
         }
         if ( ! empty( $data['tracking_number'] ) ) {
             $order->update_meta_data( '_houla_tracking_number', sanitize_text_field( $data['tracking_number'] ) );
+            $note_lines[] = 'N° de suivi : ' . sanitize_text_field( $data['tracking_number'] );
+        }
+        if ( ! empty( $data['tracking_url'] ) ) {
+            $note_lines[] = 'Suivi : ' . esc_url( $data['tracking_url'] );
         }
 
+        $order->set_status( $wc_status, implode( "\n", $note_lines ) );
         $order->save();
 
         // Clear the skip flag after save (the hook has already fired at this point)
@@ -513,7 +595,7 @@ class Wp_Houla_Orders {
      * @param string $houla_order_id
      * @return int|false WooCommerce order ID or false.
      */
-    private function find_order_by_houla_id( $houla_order_id ) {
+    public function find_order_by_houla_id( $houla_order_id ) {
         $orders = wc_get_orders( array(
             'meta_key'   => '_houla_order_id',
             'meta_value' => sanitize_text_field( $houla_order_id ),

@@ -626,3 +626,20 @@
     background: #e2e3e5;
     color: #383d41;
 }
+
+/* =====================================================================
+   WooCommerce custom order status: Open Cart
+   ===================================================================== */
+
+/* Status badge in orders list table (WooCommerce HPOS + legacy) */
+.order-status.status-open-cart,
+mark.order-status.status-open-cart {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Status column colored dot (WooCommerce 8+) */
+.wc-orders-list-table .order-status.status-open-cart::before,
+mark.order-status.status-open-cart::before {
+    color: #f59e0b;
+}

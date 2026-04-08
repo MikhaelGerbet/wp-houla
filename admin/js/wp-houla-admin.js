@@ -1221,6 +1221,34 @@
         resyncOrders($(this), 'failed');
     });
 
+    // Pull orders from Hou.la → WooCommerce
+    $(document).on('click', '#wphoula-pull-orders-from-houla', function () {
+        var $btn = $(this);
+        var $status = $('#wphoula-order-resync-status');
+        $btn.prop('disabled', true);
+        $status.show().text(i18n.pulling || 'Pulling orders from Hou.la...').css('color', '#666');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_pull_orders_from_houla',
+            nonce: nonce
+        }, function (resp) {
+            $btn.prop('disabled', false);
+            if (resp.success) {
+                var d = resp.data;
+                var msg = d.succeeded + ' synced';
+                if (d.failed > 0) msg += ', ' + d.failed + ' failed';
+                msg += ' (' + d.total + ' total)';
+                $status.text(msg).css('color', d.failed > 0 ? '#f0b849' : '#46b450');
+                loadOrderSyncCounts(); // Refresh counts
+            } else {
+                $status.text(resp.data || 'Error').css('color', '#dc3232');
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false);
+            $status.text('Network error').css('color', '#dc3232');
+        });
+    });
+
     function resyncOrders($btn, filter) {
         var $status = $('#wphoula-order-resync-status');
         $btn.prop('disabled', true);

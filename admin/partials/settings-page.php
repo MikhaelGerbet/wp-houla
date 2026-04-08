@@ -630,9 +630,15 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                 <button type="button" class="button" id="wphoula-resync-failed-orders" style="margin-right: 8px;" disabled>
                     <?php esc_html_e( 'Retry failed orders', 'wp-houla' ); ?>
                 </button>
-                <button type="button" class="button" id="wphoula-resync-all-orders" disabled>
+                <button type="button" class="button" id="wphoula-resync-all-orders" style="margin-right: 8px;" disabled>
                     <?php esc_html_e( 'Resync all orders', 'wp-houla' ); ?>
                 </button>
+                <button type="button" class="button button-primary" id="wphoula-pull-orders-from-houla">
+                    <?php esc_html_e( 'Pull orders from Hou.la', 'wp-houla' ); ?>
+                </button>
+            </p>
+            <p class="description" style="margin-top: 4px;">
+                <?php esc_html_e( '"Pull orders" fetches all orders from Hou.la and creates/updates them in WooCommerce. Use this when orders were missed (e.g. server was offline).', 'wp-houla' ); ?>
             </p>
             <div id="wphoula-order-resync-status" style="display:none; margin-top: 8px;"></div>
         </div>

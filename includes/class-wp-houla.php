@@ -130,6 +130,7 @@ class Wp_Houla {
             $this->loader->add_action( 'wp_ajax_wphoula_resync_order', $admin, 'ajax_resync_order' );
             $this->loader->add_action( 'wp_ajax_wphoula_batch_resync_orders', $admin, 'ajax_batch_resync_orders' );
             $this->loader->add_action( 'wp_ajax_wphoula_order_sync_counts', $admin, 'ajax_order_sync_counts' );
+            $this->loader->add_action( 'wp_ajax_wphoula_pull_orders_from_houla', $admin, 'ajax_pull_orders_from_houla' );
 
             // WooCommerce orders list column (sync status)
             // HPOS (High-Performance Order Storage) compatible
