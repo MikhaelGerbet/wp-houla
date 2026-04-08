@@ -88,6 +88,12 @@ class Wp_Houla_Admin {
                     'syncedOrders'        => __( 'Synced', 'wp-houla' ),
                     'failedOrders'        => __( 'Failed', 'wp-houla' ),
                     'pendingOrders'       => __( 'Pending', 'wp-houla' ),
+                    'pulling'             => __( 'Pulling orders from Hou.la...', 'wp-houla' ),
+                    'xSynced'             => __( '%d synced', 'wp-houla' ),
+                    'xFailed'             => __( '%d failed', 'wp-houla' ),
+                    'xSkipped'            => __( '%d skipped', 'wp-houla' ),
+                    'xTotal'              => __( '(%d total)', 'wp-houla' ),
+                    'errorPrefix'         => __( 'Error:', 'wp-houla' ),
                     'loadingWorkspaces'   => __( 'Chargement des espaces…', 'wp-houla' ),
                     'onlyOneWorkspace'    => __( 'Vous n\'avez qu\'un seul espace de travail.', 'wp-houla' ),
                     'switchingWorkspace'  => __( 'Changement en cours…', 'wp-houla' ),
@@ -885,14 +891,18 @@ class Wp_Houla_Admin {
             $filter = 'all';
         }
 
-        $sync   = new Wp_Houla_Sync();
-        $result = $sync->pull_orders_from_api( $filter );
+        try {
+            $sync   = new Wp_Houla_Sync();
+            $result = $sync->pull_orders_from_api( $filter );
 
-        if ( $result['message'] !== 'OK' ) {
-            wp_send_json_error( $result['message'] );
+            if ( $result['message'] !== 'OK' ) {
+                wp_send_json_error( $result['message'] );
+            }
+
+            wp_send_json_success( $result );
+        } catch ( \Throwable $e ) {
+            wp_send_json_error( __( 'Error:', 'wp-houla' ) . ' ' . $e->getMessage() );
         }
-
-        wp_send_json_success( $result );
     }
 
     // =====================================================================

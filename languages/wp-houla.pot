@@ -663,3 +663,35 @@ msgstr ""
 #: admin/class-wp-houla-admin.php
 msgid "Not connected to Hou.la. Please reconnect in the Connection tab."
 msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "Pull orders from Hou.la"
+msgstr ""
+
+#: admin/partials/settings-page.php
+msgid "\"Pull orders\" fetches all orders from Hou.la and creates/updates them in WooCommerce. Use this when orders were missed (e.g. server was offline)."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Pulling orders from Hou.la..."
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "%d synced"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "%d failed"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "%d skipped"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "(%d total)"
+msgstr ""
+
+#: admin/class-wp-houla-admin.php
+msgid "Error:"
+msgstr ""

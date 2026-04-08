@@ -896,3 +896,39 @@ msgstr "Synchronisation en attente"
 #: admin/class-wp-houla-admin.php
 msgid "Sync now"
 msgstr "Synchroniser maintenant"
+
+# =====================================================================
+# Order sync button & JS messages (class-wp-houla-admin.php)
+# =====================================================================
+
+#: admin/partials/settings-page.php
+msgid "Pull orders from Hou.la"
+msgstr "Recuperer les commandes depuis Hou.la"
+
+#: admin/partials/settings-page.php
+msgid "\"Pull orders\" fetches all orders from Hou.la and creates/updates them in WooCommerce. Use this when orders were missed (e.g. server was offline)."
+msgstr "\"Recuperer les commandes\" recupere toutes les commandes depuis Hou.la et les cree/met a jour dans WooCommerce. Utilisez ceci lorsque des commandes ont ete manquees (ex. serveur hors ligne)."
+
+#: admin/class-wp-houla-admin.php
+msgid "Pulling orders from Hou.la..."
+msgstr "Recuperation des commandes depuis Hou.la..."
+
+#: admin/class-wp-houla-admin.php
+msgid "%d synced"
+msgstr "%d synchronisee(s)"
+
+#: admin/class-wp-houla-admin.php
+msgid "%d failed"
+msgstr "%d echouee(s)"
+
+#: admin/class-wp-houla-admin.php
+msgid "%d skipped"
+msgstr "%d ignoree(s)"
+
+#: admin/class-wp-houla-admin.php
+msgid "(%d total)"
+msgstr "(%d au total)"
+
+#: admin/class-wp-houla-admin.php
+msgid "Error:"
+msgstr "Erreur :"

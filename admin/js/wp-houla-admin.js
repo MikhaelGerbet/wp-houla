@@ -1200,7 +1200,7 @@
             $('#wphoula-resync-failed-orders').prop('disabled', d.failed === 0);
         }).fail(function (xhr) {
             console.error('wp-houla: order sync counts failed', xhr.status, xhr.responseText);
-            $container.html('<span style="color:#dc3232;">Error loading counts (HTTP ' + xhr.status + ')</span>');
+            $container.html('<span style="color:#dc3232;">' + (i18n.networkError || 'Network error') + ' (HTTP ' + xhr.status + ')</span>');
         });
     }
 
@@ -1223,35 +1223,40 @@
 
     // Pull orders from Hou.la → WooCommerce
     $(document).on('click', '#wphoula-pull-orders-from-houla', function () {
+        console.log('[wp-houla] Pull orders button clicked');
         var $btn = $(this);
         var $status = $('#wphoula-order-resync-status');
-        $btn.prop('disabled', true);
+        var originalText = $btn.text();
+        $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0 4px 0 0;vertical-align:middle;"></span>' + (i18n.pulling || 'Pulling orders from Hou.la...'));
         $status.show().text(i18n.pulling || 'Pulling orders from Hou.la...').css('color', '#666');
 
         $.post(ajaxUrl, {
             action: 'wphoula_pull_orders_from_houla',
             nonce: nonce
         }, function (resp) {
-            $btn.prop('disabled', false);
+            console.log('[wp-houla] Pull orders response:', resp);
+            $btn.prop('disabled', false).text(originalText);
             if (resp.success) {
                 var d = resp.data;
-                var msg = d.succeeded + ' synced';
-                if (d.failed > 0) msg += ', ' + d.failed + ' failed';
-                msg += ' (' + d.total + ' total)';
-                $status.text(msg).css('color', d.failed > 0 ? '#f0b849' : '#46b450');
+                var msg = (i18n.xSynced || '%d synced').replace('%d', d.succeeded);
+                if (d.failed > 0) msg += ', ' + (i18n.xFailed || '%d failed').replace('%d', d.failed);
+                msg += ' ' + (i18n.xTotal || '(%d total)').replace('%d', d.total);
+                $status.html('<span style="color:' + (d.failed > 0 ? '#f0b849' : '#46b450') + ';">&#10003; ' + msg + '</span>');
                 loadOrderSyncCounts(); // Refresh counts
             } else {
-                $status.text(resp.data || 'Error').css('color', '#dc3232');
+                $status.html('<span style="color:#dc3232;">&#10007; ' + (resp.data || (i18n.error || 'Error')) + '</span>');
             }
-        }).fail(function () {
-            $btn.prop('disabled', false);
-            $status.text('Network error').css('color', '#dc3232');
+        }).fail(function (xhr) {
+            console.error('[wp-houla] Pull orders AJAX failed:', xhr.status, xhr.responseText);
+            $btn.prop('disabled', false).text(originalText);
+            $status.html('<span style="color:#dc3232;">&#10007; ' + (i18n.networkError || 'Network error') + ' (HTTP ' + xhr.status + ')</span>');
         });
     });
 
     function resyncOrders($btn, filter) {
         var $status = $('#wphoula-order-resync-status');
-        $btn.prop('disabled', true);
+        var originalText = $btn.text();
+        $btn.prop('disabled', true).html('<span class="spinner is-active" style="float:none;margin:0 4px 0 0;vertical-align:middle;"></span>' + (i18n.syncing || 'Syncing...'));
         $status.show().text(i18n.syncing || 'Syncing...').css('color', '#666');
 
         $.post(ajaxUrl, {
@@ -1259,20 +1264,20 @@
             nonce: nonce,
             filter: filter
         }, function (resp) {
-            $btn.prop('disabled', false);
+            $btn.prop('disabled', false).text(originalText);
             if (resp.success) {
                 var d = resp.data;
-                var msg = d.synced + ' synced';
-                if (d.failed > 0) msg += ', ' + d.failed + ' failed';
-                if (d.skipped > 0) msg += ', ' + d.skipped + ' skipped';
-                $status.text(msg).css('color', d.failed > 0 ? '#f0b849' : '#46b450');
+                var msg = (i18n.xSynced || '%d synced').replace('%d', d.synced);
+                if (d.failed > 0) msg += ', ' + (i18n.xFailed || '%d failed').replace('%d', d.failed);
+                if (d.skipped > 0) msg += ', ' + (i18n.xSkipped || '%d skipped').replace('%d', d.skipped);
+                $status.html('<span style="color:' + (d.failed > 0 ? '#f0b849' : '#46b450') + ';">&#10003; ' + msg + '</span>');
                 loadOrderSyncCounts(); // Refresh counts
             } else {
-                $status.text(resp.data || 'Error').css('color', '#dc3232');
+                $status.html('<span style="color:#dc3232;">&#10007; ' + (resp.data || (i18n.error || 'Error')) + '</span>');
             }
         }).fail(function () {
-            $btn.prop('disabled', false);
-            $status.text('Network error').css('color', '#dc3232');
+            $btn.prop('disabled', false).text(originalText);
+            $status.html('<span style="color:#dc3232;">&#10007; ' + (i18n.networkError || 'Network error') + '</span>');
         });
     }
 
