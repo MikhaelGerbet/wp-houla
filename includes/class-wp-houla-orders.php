@@ -73,11 +73,11 @@ class Wp_Houla_Orders {
             return new WP_Error( 'wphoula_invalid_order', 'Missing houla_order_id or items.' );
         }
 
-        // Check for duplicate order
+        // Check for duplicate order — upsert: update if already exists
         $existing = $this->find_order_by_houla_id( $data['houla_order_id'] );
         if ( $existing ) {
-            $this->log( 'Duplicate order skipped: ' . $data['houla_order_id'] . ' (WC #' . $existing . ').' );
-            return array( 'order_id' => $existing );
+            $this->log( 'Duplicate order found: ' . $data['houla_order_id'] . ' (WC #' . $existing . '). Updating items.' );
+            return $this->update_order( $data );
         }
 
         try {
@@ -201,6 +201,136 @@ class Wp_Houla_Orders {
         } catch ( \Exception $e ) {
             $this->log( 'Order creation failed: ' . $e->getMessage() );
             return new WP_Error( 'wphoula_order_failed', $e->getMessage() );
+        }
+    }
+
+    // =====================================================================
+    // Order update (upsert — replace items on existing WC order)
+    // =====================================================================
+
+    /**
+     * Update an existing WooCommerce order with fresh items from Hou.la.
+     *
+     * Used when:
+     * - A buyer adds items to an open cart (merge path)
+     * - A seller re-syncs an order from the Hou.la dashboard
+     * - An order.paid webhook fires for an already-synced order
+     *
+     * Replaces all line items, shipping, totals, and customer info.
+     *
+     * @param array $data Parsed webhook payload (same structure as create_order).
+     * @return array|WP_Error Array with 'order_id' on success, WP_Error on failure.
+     */
+    public function update_order( $data ) {
+        if ( empty( $data['houla_order_id'] ) || empty( $data['items'] ) ) {
+            return new WP_Error( 'wphoula_invalid_order', 'Missing houla_order_id or items.' );
+        }
+
+        $order_id = $this->find_order_by_houla_id( $data['houla_order_id'] );
+        if ( ! $order_id ) {
+            // Order doesn't exist yet — fall back to create
+            return $this->create_order( $data );
+        }
+
+        try {
+            $order = wc_get_order( $order_id );
+            if ( ! $order ) {
+                return new WP_Error( 'wphoula_order_not_found', 'WC order #' . $order_id . ' not found.' );
+            }
+
+            // ----------------------------------------------------------
+            // Remove ALL existing line items (products, fees, shipping)
+            // ----------------------------------------------------------
+            foreach ( $order->get_items( array( 'line_item', 'fee', 'shipping' ) ) as $item_id => $item ) {
+                $order->remove_item( $item_id );
+            }
+
+            // ----------------------------------------------------------
+            // Re-add line items from payload
+            // ----------------------------------------------------------
+            foreach ( $data['items'] as $item ) {
+                $product_id   = absint( $item['external_id'] );
+                $variation_id = ! empty( $item['variation_id'] ) ? absint( $item['variation_id'] ) : 0;
+                $quantity     = max( 1, absint( $item['quantity'] ) );
+                $price        = isset( $item['price'] ) ? floatval( $item['price'] ) : 0;
+
+                $product = wc_get_product( $variation_id ?: $product_id );
+                if ( ! $product ) {
+                    $item_name = ! empty( $item['name'] ) ? sanitize_text_field( $item['name'] ) : 'Hou.la Product #' . $product_id;
+                    $this->log( 'Product #' . $product_id . ' not found in WC, adding as custom fee: ' . $item_name );
+                    $fee = new WC_Order_Item_Fee();
+                    $fee->set_name( $item_name . ' (x' . $quantity . ')' );
+                    $fee->set_amount( $price * $quantity );
+                    $fee->set_total( $price * $quantity );
+                    $fee->set_tax_status( 'none' );
+                    $order->add_item( $fee );
+                } else {
+                    $order->add_product( $product, $quantity, array(
+                        'subtotal' => $price * $quantity,
+                        'total'    => $price * $quantity,
+                    ) );
+                }
+            }
+
+            // ----------------------------------------------------------
+            // Re-add shipping
+            // ----------------------------------------------------------
+            if ( ! empty( $data['shipping'] ) ) {
+                $shipping_item = new WC_Order_Item_Shipping();
+                $shipping_item->set_method_title( $this->safe( $data['shipping'], 'label', 'Houla Shipping' ) );
+                $shipping_item->set_method_id( $this->safe( $data['shipping'], 'method', 'flat_rate' ) );
+                $shipping_item->set_total( floatval( $data['shipping']['amount'] ?? 0 ) );
+                $order->add_item( $shipping_item );
+            }
+
+            // ----------------------------------------------------------
+            // Update customer / billing (may have changed)
+            // ----------------------------------------------------------
+            $customer = isset( $data['customer'] ) ? $data['customer'] : array();
+            $address  = isset( $customer['address'] ) ? $customer['address'] : array();
+
+            $billing = array(
+                'first_name' => $this->safe( $customer, 'first_name' ),
+                'last_name'  => $this->safe( $customer, 'last_name' ),
+                'email'      => $this->safe( $customer, 'email' ),
+                'phone'      => $this->safe( $customer, 'phone' ),
+                'address_1'  => $this->safe( $address, 'line1' ),
+                'address_2'  => $this->safe( $address, 'line2' ),
+                'city'       => $this->safe( $address, 'city' ),
+                'state'      => $this->safe( $address, 'state' ),
+                'postcode'   => $this->safe( $address, 'postcode' ),
+                'country'    => $this->safe( $address, 'country' ),
+            );
+
+            $order->set_address( $billing, 'billing' );
+            $order->set_address( $billing, 'shipping' );
+
+            // ----------------------------------------------------------
+            // Update metadata
+            // ----------------------------------------------------------
+            $order->update_meta_data( '_houla_sync_status', 'synced' );
+            $order->update_meta_data( '_houla_sync_at', current_time( 'mysql' ) );
+            if ( ! empty( $data['transaction_id'] ) ) {
+                $order->set_transaction_id( sanitize_text_field( $data['transaction_id'] ) );
+                $order->update_meta_data( '_houla_transaction_id', sanitize_text_field( $data['transaction_id'] ) );
+            }
+
+            // Recalculate totals, then force the total from the webhook payload
+            $order->calculate_totals();
+            if ( ! empty( $data['total'] ) ) {
+                $order->set_total( floatval( $data['total'] ) );
+            }
+
+            $order->add_order_note( __( 'Order items updated via Hou.la sync.', 'wp-houla' ) );
+            $order->save();
+
+            $this->log( 'Order updated: WC #' . $order_id . ' from Hou.la ' . $data['houla_order_id'] . ' (' . count( $data['items'] ) . ' items).' );
+
+            return array( 'order_id' => $order_id );
+
+        } catch ( \Exception $e ) {
+            $this->log( 'Order update failed: ' . $e->getMessage() );
+            return new WP_Error( 'wphoula_order_update_failed', $e->getMessage() );
         }
     }
 
