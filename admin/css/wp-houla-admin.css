@@ -643,3 +643,20 @@ mark.order-status.status-open-cart {
 mark.order-status.status-open-cart::before {
     color: #f59e0b;
 }
+
+/* =====================================================================
+   WooCommerce custom order status: Abandoned Cart
+   ===================================================================== */
+
+/* Status badge in orders list table (WooCommerce HPOS + legacy) */
+.order-status.status-abandoned-cart,
+mark.order-status.status-abandoned-cart {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Status column colored dot (WooCommerce 8+) */
+.wc-orders-list-table .order-status.status-abandoned-cart::before,
+mark.order-status.status-abandoned-cart::before {
+    color: #ef4444;
+}

@@ -45,6 +45,9 @@ class Wp_Houla_Sync {
     /**
      * Register the custom 'wc-open-cart' order status in WooCommerce.
      * Called via 'init' hook.
+     *
+     * Uses both register_post_status() (legacy) and the wc_order_statuses filter
+     * (HPOS) to ensure the status works in all WooCommerce storage backends.
      */
     public function register_custom_order_statuses() {
         register_post_status( 'wc-open-cart', array(
@@ -60,17 +63,44 @@ class Wp_Houla_Sync {
                 'wp-houla'
             ),
         ) );
+
+        register_post_status( 'wc-abandoned-cart', array(
+            'label'                     => _x( 'Panier abandonné', 'Order status', 'wp-houla' ),
+            'public'                    => true,
+            'exclude_from_search'       => false,
+            'show_in_admin_all_list'    => true,
+            'show_in_admin_status_list' => true,
+            'label_count'               => _n_noop(
+                'Panier abandonné <span class="count">(%s)</span>',
+                'Panier abandonné <span class="count">(%s)</span>',
+                'wp-houla'
+            ),
+        ) );
     }
 
     /**
      * Add custom statuses to WooCommerce order statuses dropdown.
+     * This filter is the primary mechanism for HPOS-compatible custom statuses.
      *
      * @param array $statuses Existing statuses.
      * @return array Modified statuses.
      */
     public function add_custom_order_statuses( $statuses ) {
-        $statuses['wc-open-cart'] = _x( 'Panier ouvert', 'Order status', 'wp-houla' );
-        return $statuses;
+        // Insert after 'wc-pending' so it appears near the top of the status list
+        $new_statuses = array();
+        foreach ( $statuses as $key => $label ) {
+            $new_statuses[ $key ] = $label;
+            if ( 'wc-pending' === $key ) {
+                $new_statuses['wc-open-cart']      = _x( 'Panier ouvert', 'Order status', 'wp-houla' );
+                $new_statuses['wc-abandoned-cart']  = _x( 'Panier abandonné', 'Order status', 'wp-houla' );
+            }
+        }
+        // Fallback: add at the end if wc-pending wasn't found
+        if ( ! isset( $new_statuses['wc-open-cart'] ) ) {
+            $new_statuses['wc-open-cart']      = _x( 'Panier ouvert', 'Order status', 'wp-houla' );
+            $new_statuses['wc-abandoned-cart']  = _x( 'Panier abandonné', 'Order status', 'wp-houla' );
+        }
+        return $new_statuses;
     }
 
     // =====================================================================
@@ -674,6 +704,7 @@ class Wp_Houla_Sync {
         'pending'        => 'pending',
         'on-hold'        => 'pending',
         'open-cart'      => 'open_cart',
+        'abandoned-cart' => 'abandoned',
         'processing'     => 'processing',
         'completed'      => 'delivered',
         'cancelled'      => 'cancelled',

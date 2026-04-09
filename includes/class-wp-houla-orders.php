@@ -188,8 +188,20 @@ class Wp_Houla_Orders {
                 $order->set_total( floatval( $data['total'] ) );
             }
 
+            // Prevent the on_order_status_changed hook from syncing back to Hou.la
+            // (this order just came FROM Hou.la, no need to echo it back)
+            $order->update_meta_data( '_houla_skip_sync', '1' );
+
             // Use the WC status from the webhook payload if available (respects open-cart vs processing)
             $initial_status = ! empty( $data['wc_status'] ) ? sanitize_text_field( $data['wc_status'] ) : 'processing';
+            $this->log( 'Setting initial status: "' . $initial_status . '" (from wc_status field: ' . ( ! empty( $data['wc_status'] ) ? $data['wc_status'] : 'none' ) . ')' );
+
+            // Validate that our custom status is registered before setting it
+            $valid_statuses = array_keys( wc_get_order_statuses() );
+            if ( ! in_array( 'wc-' . $initial_status, $valid_statuses, true ) ) {
+                $this->log( 'WARNING: Status "wc-' . $initial_status . '" is NOT registered. Valid: ' . implode( ', ', $valid_statuses ) );
+            }
+
             $order->set_status( $initial_status, __( 'Order received via Hou.la Pay.', 'wp-houla' ) );
 
             // Add detailed order note with full item breakdown
@@ -226,11 +238,41 @@ class Wp_Houla_Orders {
 
             $order->save();
 
+            // Clear the skip-sync flag now that the save is complete
+            $order->delete_meta_data( '_houla_skip_sync' );
+            $order->save_meta_data();
+
+            // Verify the status was actually applied (WC may reject unknown statuses)
+            $actual_status = $order->get_status();
+            if ( $actual_status !== $initial_status ) {
+                $this->log( 'WARNING: Status mismatch! Requested "' . $initial_status . '" but got "' . $actual_status . '". Attempting direct DB update.' );
+                // Force status via direct update as fallback
+                global $wpdb;
+                $hpos = class_exists( 'Automattic\WooCommerce\Utilities\OrderUtil' )
+                     && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+                if ( $hpos ) {
+                    $wpdb->update(
+                        $wpdb->prefix . 'wc_orders',
+                        array( 'status' => 'wc-' . $initial_status ),
+                        array( 'id' => $order->get_id() )
+                    );
+                } else {
+                    $wpdb->update(
+                        $wpdb->posts,
+                        array( 'post_status' => 'wc-' . $initial_status ),
+                        array( 'ID' => $order->get_id() )
+                    );
+                }
+                // Clear WC object cache
+                clean_post_cache( $order->get_id() );
+                $this->log( 'Forced status to "wc-' . $initial_status . '" via direct DB update for WC #' . $order->get_id() );
+            }
+
             // Update counters
             $this->increment_counter( 'orders_received' );
             $this->options->set( 'last_order_at', current_time( 'mysql' ) );
 
-            $this->log( 'Order created: WC #' . $order->get_id() . ' from Hou.la ' . $data['houla_order_id'] . '.' );
+            $this->log( 'Order created: WC #' . $order->get_id() . ' from Hou.la ' . $data['houla_order_id'] . ' (status: ' . $initial_status . ').' );
 
             return array( 'order_id' => $order->get_id() );
 
