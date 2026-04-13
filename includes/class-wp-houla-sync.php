@@ -521,6 +521,8 @@ class Wp_Houla_Sync {
             'sku'             => $product->get_sku(),
             'weight'          => $product->get_weight(),
             'type'            => $product->get_type(),
+            'virtual'         => $product->is_virtual(),
+            'downloadable'    => $product->is_downloadable(),
         );
 
         // Apply price adjustment
