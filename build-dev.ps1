@@ -125,6 +125,9 @@ foreach ($file in $files) {
     $content = $content -replace 'settings_page_wp-houla\b', 'settings_page_wp-houla-dev'
     $content = $content -replace 'toplevel_page_wp-houla\b', 'toplevel_page_wp-houla-dev'
 
+    # --- 9b. Admin page slug in URLs (e.g. page=wp-houla& or page=wp-houla') ---
+    $content = $content -replace 'page=wp-houla\b', 'page=wp-houla-dev'
+
     # --- 10. Shortcode tag ---
     $content = $content -replace "'wphoula'", "'wphouladev'"
     $content = $content -replace '"wphoula"', '"wphouladev"'
@@ -249,7 +252,17 @@ $zipName = "wp-houla-dev-$version.zip"
 $zipPath = Join-Path $releasesDir $zipName
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path $dest -DestinationPath $zipPath -CompressionLevel Optimal
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$fullZipPath = (Resolve-Path $releasesDir).Path + "\$zipName"
+$fullBuildDir = (Resolve-Path $buildDir).Path
+$archive = [System.IO.Compression.ZipFile]::Open($fullZipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+Get-ChildItem -Path $fullBuildDir -Recurse -File | ForEach-Object {
+    $entryName = $_.FullName.Substring($fullBuildDir.Length + 1).Replace('\', '/')
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+}
+$archive.Dispose()
 
 # Cleanup build dir
 Remove-Item $buildDir -Recurse -Force

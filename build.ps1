@@ -51,12 +51,22 @@ foreach ($pattern in $excludePatterns) {
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# Create zip
+# Create zip with forward-slash paths (Linux-compatible)
 $zipName = "wp-houla-$version.zip"
 $zipPath = Join-Path $releasesDir $zipName
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path $dest -DestinationPath $zipPath -CompressionLevel Optimal
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$fullZipPath = (Resolve-Path $releasesDir).Path + "\$zipName"
+$fullBuildDir = (Resolve-Path $buildDir).Path
+$archive = [System.IO.Compression.ZipFile]::Open($fullZipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+Get-ChildItem -Path $fullBuildDir -Recurse -File | ForEach-Object {
+    $entryName = $_.FullName.Substring($fullBuildDir.Length + 1).Replace('\', '/')
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+}
+$archive.Dispose()
 
 # Cleanup build dir
 Remove-Item $buildDir -Recurse -Force
