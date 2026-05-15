@@ -369,6 +369,232 @@ class Wp_Houla_Admin {
     }
 
     /**
+     * AJAX: Start background sync — returns immediately, sync runs in a loopback request.
+     */
+    public function ajax_start_background_sync() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $sync  = new Wp_Houla_Sync();
+
+        // Check if already running — prevent duplicate launches
+        $status = get_transient( 'wphoula_bg_sync_status' );
+        if ( $status && 'running' === $status['state'] ) {
+            // Consider a sync "stale" if it has been running for more than 45 minutes (process likely died)
+            $started = isset( $status['started'] ) ? (int) $status['started'] : 0;
+            if ( $started && ( time() - $started ) < 2700 ) {
+                // Still within valid window — refuse to start another
+                wp_send_json_success( $status );
+                return;
+            }
+            // Stale sync — mark as error and allow restart
+            $status['state']         = 'error';
+            $status['error_message'] = 'Sync timed out (stale process)';
+            set_transient( 'wphoula_bg_sync_status', $status, HOUR_IN_SECONDS );
+            delete_transient( 'wphoula_bg_sync_nonce' );
+        }
+
+        $total = $sync->count_products_to_sync();
+        if ( 0 === $total ) {
+            wp_send_json_success( array( 'state' => 'done', 'total' => 0, 'synced' => 0, 'errors' => 0 ) );
+            return;
+        }
+
+        // Store initial state in transient (expires after 1 hour)
+        $state = array(
+            'state'   => 'running',
+            'total'   => $total,
+            'synced'  => 0,
+            'errors'  => 0,
+            'page'    => 1,
+            'started' => time(),
+        );
+        set_transient( 'wphoula_bg_sync_status', $state, HOUR_IN_SECONDS );
+
+        // Create a one-time nonce for the background processor
+        $bg_nonce = wp_create_nonce( 'wphoula_bg_sync' );
+        set_transient( 'wphoula_bg_sync_nonce', $bg_nonce, HOUR_IN_SECONDS );
+
+        // Fire a non-blocking loopback request to process the first batch
+        wp_remote_post( admin_url( 'admin-ajax.php' ), array(
+            'blocking'  => false,
+            'timeout'   => 0.01,
+            'sslverify' => false,
+            'body'      => array(
+                'action' => 'wphoula_bg_sync_process',
+                'nonce'  => $bg_nonce,
+            ),
+            'cookies'   => $_COOKIE,
+        ) );
+
+        wp_send_json_success( $state );
+    }
+
+    /**
+     * AJAX: Background sync processor — called via non-blocking loopback.
+     * Processes ALL remaining pages in a single long-running request.
+     * Uses an exclusive file lock (flock) to guarantee only ONE instance runs at a time.
+     */
+    public function ajax_bg_sync_process() {
+        // Verify the one-time background nonce
+        $expected = get_transient( 'wphoula_bg_sync_nonce' );
+        $received = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+        if ( ! $expected || $received !== $expected ) {
+            wp_send_json_error( 'Invalid background nonce' );
+        }
+
+        // Exclusive lock: only one sync process can run at a time
+        $lock_file = sys_get_temp_dir() . '/wphoula_sync_' . md5( ABSPATH ) . '.lock';
+        $lock_fp   = fopen( $lock_file, 'w' );
+        if ( ! $lock_fp || ! flock( $lock_fp, LOCK_EX | LOCK_NB ) ) {
+            // Another process already holds the lock — exit silently
+            if ( $lock_fp ) {
+                fclose( $lock_fp );
+            }
+            wp_send_json_error( 'Sync already running in another process' );
+            return;
+        }
+
+        // Allow long execution — up to 30 min for large catalogs
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( 1800 );
+        }
+        ignore_user_abort( true );
+
+        $status = get_transient( 'wphoula_bg_sync_status' );
+        if ( ! $status || 'running' !== $status['state'] ) {
+            flock( $lock_fp, LOCK_UN );
+            fclose( $lock_fp );
+            @unlink( $lock_file );
+            wp_send_json_error( 'No sync in progress' );
+        }
+
+        $page = isset( $status['page'] ) ? (int) $status['page'] : 1;
+
+        $sync = new Wp_Houla_Sync();
+
+        // Register connection on first page
+        if ( 1 === $page ) {
+            $sync->register_connection();
+        }
+
+        // Process ALL pages in this single request
+        $max_retries = 3;
+        while ( true ) {
+            // Check if cancelled
+            $current_status = get_transient( 'wphoula_bg_sync_status' );
+            if ( ! $current_status || 'running' !== $current_status['state'] ) {
+                break;
+            }
+
+            // Retry logic per page
+            $result = null;
+            for ( $attempt = 1; $attempt <= $max_retries; $attempt++ ) {
+                $result = $sync->batch_sync_page( $page );
+
+                if ( empty( $result['connection_error'] ) ) {
+                    break;
+                }
+
+                if ( $attempt < $max_retries ) {
+                    sleep( $attempt * 5 ); // Backoff: 5s, 10s
+                }
+            }
+
+            // Update running totals
+            $status['synced'] += $result['synced'];
+            $status['errors'] += $result['errors'];
+            $status['page']    = $page;
+
+            // Connection error after all retries — abort
+            if ( ! empty( $result['connection_error'] ) ) {
+                $status['state']         = 'error';
+                $status['error_message'] = isset( $result['error_message'] ) ? $result['error_message'] : 'Connection error';
+                set_transient( 'wphoula_bg_sync_status', $status, HOUR_IN_SECONDS );
+                delete_transient( 'wphoula_bg_sync_nonce' );
+                // Release the exclusive lock before returning
+                flock( $lock_fp, LOCK_UN );
+                fclose( $lock_fp );
+                @unlink( $lock_file );
+                wp_send_json_success( 'aborted at page ' . $page );
+                return;
+            }
+
+            // Update transient so JS polling shows progress
+            set_transient( 'wphoula_bg_sync_status', $status, HOUR_IN_SECONDS );
+
+            if ( ! $result['has_more'] ) {
+                break; // All pages done
+            }
+
+            $page++;
+
+            // Small delay between pages to be gentle on the API
+            usleep( 500000 ); // 500ms
+        }
+
+        // Finalize
+        $status['state']    = 'done';
+        $status['finished'] = time();
+        set_transient( 'wphoula_bg_sync_status', $status, HOUR_IN_SECONDS );
+        delete_transient( 'wphoula_bg_sync_nonce' );
+
+        // Update plugin counters
+        $options = new Wp_Houla_Options();
+        $options->set( 'products_synced', $status['synced'] );
+        $options->set( 'last_full_sync', current_time( 'mysql' ) );
+
+        // Release the exclusive lock
+        flock( $lock_fp, LOCK_UN );
+        fclose( $lock_fp );
+        @unlink( $lock_file );
+
+        wp_send_json_success( 'completed: ' . $status['synced'] . ' synced' );
+    }
+
+    /**
+     * AJAX: Get background sync status — called by JS polling.
+     */
+    public function ajax_get_sync_status() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $status = get_transient( 'wphoula_bg_sync_status' );
+        if ( ! $status ) {
+            wp_send_json_success( array( 'state' => 'idle' ) );
+            return;
+        }
+
+        wp_send_json_success( $status );
+    }
+
+    /**
+     * AJAX: Cancel a running background sync.
+     */
+    public function ajax_cancel_sync() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $status = get_transient( 'wphoula_bg_sync_status' );
+        if ( $status && 'running' === $status['state'] ) {
+            $status['state'] = 'cancelled';
+            set_transient( 'wphoula_bg_sync_status', $status, HOUR_IN_SECONDS );
+            delete_transient( 'wphoula_bg_sync_nonce' );
+        }
+
+        wp_send_json_success( $status );
+    }
+
+    /**
      * AJAX: Save settings.
      */
     public function ajax_save_settings() {
@@ -578,7 +804,7 @@ class Wp_Houla_Admin {
     }
 
     /**
-     * AJAX: Get synced products from Hou.la API.
+     * AJAX: Get synced products from Hou.la API (paginated).
      */
     public function ajax_get_synced_products() {
         check_ajax_referer( 'wphoula_admin', 'nonce' );
@@ -586,6 +812,10 @@ class Wp_Houla_Admin {
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
         }
+
+        $page     = isset( $_POST['page'] ) ? max( 1, intval( $_POST['page'] ) ) : 1;
+        $per_page = isset( $_POST['per_page'] ) ? max( 1, min( 100, intval( $_POST['per_page'] ) ) ) : 20;
+        $search   = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
 
         $api    = new Wp_Houla_Api();
         $result = $api->get( '/ecommerce/products?platform=woocommerce' );
@@ -595,7 +825,7 @@ class Wp_Houla_Admin {
         }
 
         // Enrich with WC product info
-        $products = array();
+        $all_products = array();
         if ( is_array( $result ) ) {
             foreach ( $result as $product ) {
                 $ext_id = isset( $product['externalProductId'] ) ? $product['externalProductId'] : '';
@@ -609,7 +839,7 @@ class Wp_Houla_Admin {
                 $currency     = isset( $product['currency'] ) ? $product['currency'] : 'EUR';
                 $houla_price  = $price_cents > 0 ? number_format( $price_cents / 100, 2, '.', '' ) . ' ' . $currency : '';
                 $stock_qty    = isset( $product['stockQuantity'] ) ? $product['stockQuantity'] : null;
-                $wc_currency  = function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '';
+                $wc_currency  = function_exists( 'get_woocommerce_currency_symbol' ) ? html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8' ) : '';
                 $wc_formatted = ( $wc_price !== '' && $wc_price !== null ) ? $wc_price . ' ' . $wc_currency : '';
                 $last_synced  = isset( $product['lastSyncedAt'] ) ? $product['lastSyncedAt'] : null;
 
@@ -621,7 +851,7 @@ class Wp_Houla_Admin {
                     }
                 }
 
-                $products[] = array(
+                $all_products[] = array(
                     'id'          => $product['id'] ?? '',
                     'title'       => $product['title'] ?? '',
                     'externalId'  => $ext_id,
@@ -635,7 +865,28 @@ class Wp_Houla_Admin {
             }
         }
 
-        wp_send_json_success( $products );
+        // Filter by search term (title or externalId)
+        if ( $search !== '' ) {
+            $search_lower = mb_strtolower( $search );
+            $all_products = array_filter( $all_products, function( $p ) use ( $search_lower ) {
+                return ( mb_strpos( mb_strtolower( $p['title'] ), $search_lower ) !== false )
+                    || ( mb_strpos( mb_strtolower( $p['externalId'] ), $search_lower ) !== false );
+            } );
+            $all_products = array_values( $all_products );
+        }
+
+        // Pagination
+        $total    = count( $all_products );
+        $offset   = ( $page - 1 ) * $per_page;
+        $products = array_slice( $all_products, $offset, $per_page );
+
+        wp_send_json_success( array(
+            'products' => $products,
+            'total'    => $total,
+            'page'     => $page,
+            'per_page' => $per_page,
+            'pages'    => (int) ceil( $total / $per_page ),
+        ) );
     }
 
     /**

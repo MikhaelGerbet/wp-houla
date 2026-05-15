@@ -334,28 +334,36 @@ class Wp_Houla_Sync {
         $synced = 0;
         $errors = 0;
 
+        // Build batch payload — separate new vs existing products
+        $new_products_data  = array(); // Products without a Hou.la ID → batch create
+        $new_products_wcids = array(); // Corresponding WC product IDs
+        $update_items       = array(); // Products with a Hou.la ID → individual update (needs Hou.la UUID in URL)
+
         foreach ( $products as $product ) {
             $product_id = $product->get_id();
             $houla_id   = get_post_meta( $product_id, '_wphoula_product_id', true );
             $data       = $this->format_product( $product );
 
             if ( $houla_id ) {
-                $result = $this->api->patch( '/ecommerce/products/' . $houla_id, $data );
+                $update_items[] = array( 'wc_id' => $product_id, 'houla_id' => $houla_id, 'data' => $data );
             } else {
-                $result = $this->api->post( '/ecommerce/products', $data );
+                $new_products_data[]  = $data;
+                $new_products_wcids[] = $product_id;
             }
+        }
 
-            if ( is_wp_error( $result ) ) {
-                $errors++;
-                $error_msg = $result->get_error_message();
-                $this->log( 'Batch sync page error for product #' . $product_id . ': ' . $error_msg );
+        // 1. Batch-create new products in a single API call
+        if ( ! empty( $new_products_data ) ) {
+            $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $new_products_data ) );
 
-                // Connection-level error: stop immediately, remaining products will fail the same way
-                if ( $this->is_connection_error( $result ) ) {
-                    $this->log( 'Connection error detected, aborting sync.' );
+            if ( is_wp_error( $batch_result ) ) {
+                $error_msg = $batch_result->get_error_message();
+                $this->log( 'Batch create error: ' . $error_msg );
+
+                if ( $this->is_connection_error( $batch_result ) ) {
                     return array(
-                        'synced'           => $synced,
-                        'errors'           => $errors,
+                        'synced'           => 0,
+                        'errors'           => count( $new_products_data ),
                         'page'             => $page,
                         'has_more'         => false,
                         'connection_error' => true,
@@ -363,16 +371,78 @@ class Wp_Houla_Sync {
                     );
                 }
 
-                continue;
+                $errors += count( $new_products_data );
+            } else {
+                // Process batch results — map created IDs back to WC products
+                $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
+                foreach ( $details as $idx => $detail ) {
+                    $wc_id = isset( $new_products_wcids[ $idx ] ) ? $new_products_wcids[ $idx ] : null;
+                    if ( ! $wc_id ) {
+                        continue;
+                    }
+
+                    if ( isset( $detail['error'] ) ) {
+                        $errors++;
+                        $this->log( 'Batch create error for WC #' . $wc_id . ': ' . $detail['error'] );
+                    } else {
+                        if ( isset( $detail['id'] ) ) {
+                            update_post_meta( $wc_id, '_wphoula_product_id', $detail['id'] );
+                        }
+                        update_post_meta( $wc_id, '_wphoula_synced', 1 );
+                        update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+                        $synced++;
+                    }
+                }
+            }
+        }
+
+        // 2. Batch-update existing products (need individual PATCH for Hou.la UUID routing)
+        //    Group into a single batch call using the same endpoint
+        if ( ! empty( $update_items ) ) {
+            // Inject houla_id as external_id override for upsert behavior
+            $update_data  = array();
+            $update_wcids = array();
+            foreach ( $update_items as $item ) {
+                $update_data[]  = $item['data'];
+                $update_wcids[] = $item['wc_id'];
             }
 
-            if ( ! $houla_id && isset( $result['id'] ) ) {
-                update_post_meta( $product_id, '_wphoula_product_id', $result['id'] );
-            }
+            $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $update_data ) );
 
-            update_post_meta( $product_id, '_wphoula_synced', 1 );
-            update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
-            $synced++;
+            if ( is_wp_error( $batch_result ) ) {
+                $error_msg = $batch_result->get_error_message();
+                $this->log( 'Batch update error: ' . $error_msg );
+
+                if ( $this->is_connection_error( $batch_result ) ) {
+                    return array(
+                        'synced'           => $synced,
+                        'errors'           => $errors + count( $update_items ),
+                        'page'             => $page,
+                        'has_more'         => false,
+                        'connection_error' => true,
+                        'error_message'    => $error_msg,
+                    );
+                }
+
+                $errors += count( $update_items );
+            } else {
+                $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
+                foreach ( $details as $idx => $detail ) {
+                    $wc_id = isset( $update_wcids[ $idx ] ) ? $update_wcids[ $idx ] : null;
+                    if ( ! $wc_id ) {
+                        continue;
+                    }
+
+                    if ( isset( $detail['error'] ) ) {
+                        $errors++;
+                        $this->log( 'Batch update error for WC #' . $wc_id . ': ' . $detail['error'] );
+                    } else {
+                        update_post_meta( $wc_id, '_wphoula_synced', 1 );
+                        update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+                        $synced++;
+                    }
+                }
+            }
         }
 
         // Accumulate running totals across pages

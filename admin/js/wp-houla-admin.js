@@ -362,122 +362,177 @@
     // Batch sync (paginated with progress bar)
     // =================================================================
 
+    // -----------------------------------------------------------------
+    // Background sync with polling
+    // -----------------------------------------------------------------
+
+    var syncPollingTimer = null;
+
     $(document).on('click', '#wphoula-batch-sync', function () {
         if (shopActive === false) {
             alert(i18n.shopNotActive || 'Your Hou.la shop is not activated. Please connect Stripe on Hou.la first.');
             return;
         }
         var $btn = $(this);
+        var $cancelBtn = $('#wphoula-cancel-sync');
         var $spinner = $('#wphoula-sync-status');
         var $progress = $('#wphoula-sync-progress');
         var $fill = $('#wphoula-progress-fill');
         var $text = $('#wphoula-progress-text');
 
         $btn.prop('disabled', true);
-        $spinner.show().text(i18n.syncing || 'Comptage des produits en cours...');
+        $spinner.show().text(i18n.syncing || 'Lancement de la synchronisation...');
 
-        // Step 1: count products
+        // Start background sync
         $.post(ajaxUrl, {
-            action: 'wphoula_batch_sync_count',
+            action: 'wphoula_start_background_sync',
             nonce: nonce
-        }, function (countResp) {
-            if (!countResp.success) {
+        }, function (resp) {
+            if (!resp.success) {
                 $btn.prop('disabled', false);
-                $spinner.text(i18n.syncError || 'Erreur lors du comptage');
+                $spinner.text(i18n.syncError || 'Erreur lors du lancement');
                 return;
             }
 
-            var total = countResp.data.total;
-            if (total === 0) {
+            var state = resp.data;
+            if (state.state === 'done' && state.total === 0) {
                 $btn.prop('disabled', false);
                 $spinner.text('Aucun produit à synchroniser');
                 setTimeout(function () { $spinner.hide(); }, 3000);
                 return;
             }
 
-            // Show progress bar with initial context
+            // Show progress bar + cancel button
             $spinner.hide();
             $progress.show();
-            $fill.css('width', '0%').removeClass('wphoula-progress-fill--done');
-            $text.html('<strong>Synchronisation en cours...</strong><br>0 / ' + total + ' produits traités');
+            $cancelBtn.show();
+            $fill.css('width', '0%').css('background', '').removeClass('wphoula-progress-fill--done');
+            $text.html('<strong>Synchronisation en cours...</strong><br>0 / ' + state.total + ' produits traités');
 
-            var page = 1;
-            var totalSynced = 0;
-            var totalErrors = 0;
-
-            // Step 2: sync page by page
-            function syncNextPage() {
-                $.post(ajaxUrl, {
-                    action: 'wphoula_batch_sync_page',
-                    nonce: nonce,
-                    page: page
-                }, function (resp) {
-                    if (!resp.success) {
-                        $btn.prop('disabled', false);
-                        $text.html('<strong style="color:#d63638;">Erreur de synchronisation</strong><br>Veuillez réessayer.');
-                        return;
-                    }
-
-                    var d = resp.data;
-
-                    // Connection error — API unreachable, stop immediately
-                    if (d.connection_error) {
-                        $fill.css('width', '100%').removeClass('wphoula-progress-fill--done').css('background', '#d63638');
-                        $text.html(
-                            '<strong style="color:#d63638;">\u26A0 Impossible de contacter le serveur Hou.la</strong><br>' +
-                            'V\u00E9rifiez que votre connexion internet fonctionne et que le service Hou.la est disponible.' +
-                            (d.error_message ? '<br><small style="color:#888;">' + escapeHtml(d.error_message) + '</small>' : '')
-                        );
-                        $btn.prop('disabled', false);
-                        return;
-                    }
-
-                    totalSynced += d.synced;
-                    totalErrors += d.errors;
-
-                    var processed = totalSynced + totalErrors;
-                    var pct = Math.min(100, Math.round(processed / total * 100));
-                    $fill.css('width', pct + '%');
-                    $text.html(
-                        '<strong>Synchronisation en cours... ' + pct + '%</strong><br>' +
-                        processed + ' / ' + total + ' produits traités' +
-                        (totalErrors > 0 ? ' <span style="color:#d63638;">(' + totalErrors + ' erreur' + (totalErrors > 1 ? 's' : '') + ')</span>' : '')
-                    );
-
-                    if (d.has_more) {
-                        page++;
-                        syncNextPage();
-                    } else {
-                        // Done — show success summary
-                        $fill.css('width', '100%').addClass('wphoula-progress-fill--done');
-                        var summary = '<strong style="color:#00a32a;">✓ Synchronisation terminée</strong><br>' +
-                            totalSynced + ' produit' + (totalSynced > 1 ? 's' : '') + ' synchronisé' + (totalSynced > 1 ? 's' : '');
-                        if (totalErrors > 0) {
-                            summary += ', <span style="color:#d63638;">' + totalErrors + ' erreur' + (totalErrors > 1 ? 's' : '') + '</span>';
-                        }
-                        $text.html(summary);
-                        $btn.prop('disabled', false);
-
-                        // Update counters in the settings table
-                        $('#wphoula-products-synced-count').text(totalSynced);
-                        $('#wphoula-last-full-sync').text(new Date().toLocaleString());
-
-                        // Refresh the synced products table
-                        loadSyncedProducts();
-                    }
-                }).fail(function () {
-                    $btn.prop('disabled', false);
-                    $text.html('<strong style="color:#d63638;">Erreur réseau</strong><br>Vérifiez votre connexion et réessayez.');
-                });
-            }
-
-            syncNextPage();
+            // Start polling for status
+            startSyncPolling();
 
         }).fail(function () {
             $btn.prop('disabled', false);
             $spinner.text(i18n.syncError || 'Error');
         });
     });
+
+    // Cancel sync
+    $(document).on('click', '#wphoula-cancel-sync', function () {
+        var $btn = $(this);
+        $btn.prop('disabled', true);
+        $.post(ajaxUrl, {
+            action: 'wphoula_cancel_sync',
+            nonce: nonce
+        }, function () {
+            $btn.prop('disabled', false);
+        });
+    });
+
+    function startSyncPolling() {
+        if (syncPollingTimer) clearInterval(syncPollingTimer);
+        syncPollingTimer = setInterval(pollSyncStatus, 2000);
+    }
+
+    function stopSyncPolling() {
+        if (syncPollingTimer) {
+            clearInterval(syncPollingTimer);
+            syncPollingTimer = null;
+        }
+    }
+
+    function pollSyncStatus() {
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_sync_status',
+            nonce: nonce
+        }, function (resp) {
+            if (!resp.success || !resp.data) return;
+
+            var s = resp.data;
+            var $btn = $('#wphoula-batch-sync');
+            var $cancelBtn = $('#wphoula-cancel-sync');
+            var $progress = $('#wphoula-sync-progress');
+            var $fill = $('#wphoula-progress-fill');
+            var $text = $('#wphoula-progress-text');
+
+            if (s.state === 'idle') {
+                stopSyncPolling();
+                return;
+            }
+
+            var processed = (s.synced || 0) + (s.errors || 0);
+            var total = s.total || 1;
+            var pct = Math.min(100, Math.round(processed / total * 100));
+
+            if (s.state === 'running') {
+                $progress.show();
+                $cancelBtn.show();
+                $fill.css('width', pct + '%').css('background', '');
+                $text.html(
+                    '<strong>Synchronisation en cours... ' + pct + '%</strong><br>' +
+                    processed + ' / ' + total + ' produits traités' +
+                    (s.errors > 0 ? ' <span style="color:#d63638;">(' + s.errors + ' erreur' + (s.errors > 1 ? 's' : '') + ')</span>' : '') +
+                    '<br><small style="color:#888;">Vous pouvez quitter cette page, la synchronisation continue en arrière-plan.</small>'
+                );
+            } else if (s.state === 'done') {
+                stopSyncPolling();
+                $fill.css('width', '100%').addClass('wphoula-progress-fill--done').css('background', '');
+                var summary = '<strong style="color:#00a32a;">\u2713 Synchronisation terminée</strong><br>' +
+                    s.synced + ' produit' + (s.synced > 1 ? 's' : '') + ' synchronisé' + (s.synced > 1 ? 's' : '');
+                if (s.errors > 0) {
+                    summary += ', <span style="color:#d63638;">' + s.errors + ' erreur' + (s.errors > 1 ? 's' : '') + '</span>';
+                }
+                $text.html(summary);
+                $btn.prop('disabled', false);
+                $cancelBtn.hide();
+
+                // Update counters
+                $('#wphoula-products-synced-count').text(s.synced);
+                $('#wphoula-last-full-sync').text(new Date().toLocaleString());
+
+                // Refresh synced products table
+                loadSyncedProducts();
+            } else if (s.state === 'error') {
+                stopSyncPolling();
+                $fill.css('width', '100%').css('background', '#d63638');
+                $text.html(
+                    '<strong style="color:#d63638;">\u26A0 Erreur de synchronisation</strong><br>' +
+                    (s.error_message ? escapeHtml(s.error_message) : 'Une erreur est survenue.') +
+                    '<br>' + s.synced + ' produit(s) synchronisé(s) avant l\'erreur.'
+                );
+                $btn.prop('disabled', false);
+                $cancelBtn.hide();
+            } else if (s.state === 'cancelled') {
+                stopSyncPolling();
+                $fill.css('width', pct + '%').css('background', '#dba617');
+                $text.html(
+                    '<strong style="color:#dba617;">\u26A0 Synchronisation annulée</strong><br>' +
+                    s.synced + ' produit(s) synchronisé(s) sur ' + total + '.'
+                );
+                $btn.prop('disabled', false);
+                $cancelBtn.hide();
+            }
+        });
+    }
+
+    // On page load: check if a background sync is already running
+    function checkExistingSyncOnLoad() {
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_sync_status',
+            nonce: nonce
+        }, function (resp) {
+            if (resp.success && resp.data && resp.data.state === 'running') {
+                var $btn = $('#wphoula-batch-sync');
+                var $progress = $('#wphoula-sync-progress');
+                var $cancelBtn = $('#wphoula-cancel-sync');
+                $btn.prop('disabled', true);
+                $progress.show();
+                $cancelBtn.show();
+                startSyncPolling();
+            }
+        });
+    }
 
     // =================================================================
     // Product metabox: sync / unsync / stats
@@ -894,6 +949,7 @@
             loadCollections();
             loadSyncedProducts();
             loadIdentifierMetaKeys();
+            checkExistingSyncOnLoad();
         }
     });
 
@@ -905,6 +961,7 @@
             loadCollections();
             loadSyncedProducts();
             loadIdentifierMetaKeys();
+            checkExistingSyncOnLoad();
         }
 
         // Trigger price example on load if value is set
@@ -1044,30 +1101,47 @@
     }
 
     // -----------------------------------------------------------------
-    // Load synced products
+    // Load synced products (paginated)
     // -----------------------------------------------------------------
+
+    var syncedProductsPage = 1;
+    var syncedProductsPerPage = 20;
+    var syncedProductsSearch = '';
+    var syncedProductsSearchTimer = null;
 
     function loadSyncedProducts() {
         var $loading = $('#wphoula-synced-products-loading');
         var $table = $('#wphoula-synced-products');
         var $empty = $('#wphoula-synced-products-empty');
+        var $pagination = $('#wphoula-products-pagination');
 
         $loading.show();
         $table.hide();
         $empty.hide();
+        $pagination.hide();
 
         $.post(ajaxUrl, {
             action: 'wphoula_get_synced_products',
-            nonce: nonce
+            nonce: nonce,
+            page: syncedProductsPage,
+            per_page: syncedProductsPerPage,
+            search: syncedProductsSearch
         }, function (response) {
             $loading.hide();
 
-            if (!response.success || !response.data || response.data.length === 0) {
+            if (!response.success || !response.data || !response.data.products || response.data.products.length === 0) {
                 $empty.show();
+                $('#wphoula-products-total').text('');
                 return;
             }
 
-            var products = response.data;
+            var data = response.data;
+            var products = data.products;
+            var total = data.total;
+            var page = data.page;
+            var pages = data.pages;
+            var offset = (page - 1) * data.per_page;
+
             var $tbody = $table.find('tbody');
             $tbody.empty();
 
@@ -1092,7 +1166,7 @@
 
                 $tbody.append(
                     '<tr>' +
-                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + (offset + i + 1) + '</td>' +
                     '<td>' + escapeHtml(name) + '</td>' +
                     '<td>' + escapeHtml(String(wcPrice)) + '</td>' +
                     '<td>' + escapeHtml(String(houlaPrice)) + '</td>' +
@@ -1104,11 +1178,55 @@
             }
 
             $table.show();
+
+            // Update total
+            $('#wphoula-products-total').text(total + ' produit' + (total > 1 ? 's' : ''));
+
+            // Update pagination
+            if (pages > 1) {
+                $pagination.show();
+                $('#wphoula-products-prev').prop('disabled', page <= 1);
+                $('#wphoula-products-next').prop('disabled', page >= pages);
+                $('#wphoula-products-page-info').text('Page ' + page + ' / ' + pages);
+            } else {
+                $pagination.hide();
+            }
         }).fail(function () {
             $loading.hide();
             $empty.show();
         });
     }
+
+    // Pagination controls
+    $(document).on('click', '#wphoula-products-prev', function () {
+        if (syncedProductsPage > 1) {
+            syncedProductsPage--;
+            loadSyncedProducts();
+        }
+    });
+
+    $(document).on('click', '#wphoula-products-next', function () {
+        syncedProductsPage++;
+        loadSyncedProducts();
+    });
+
+    // Per-page selector
+    $(document).on('change', '#wphoula-products-per-page', function () {
+        syncedProductsPerPage = parseInt($(this).val(), 10) || 20;
+        syncedProductsPage = 1;
+        loadSyncedProducts();
+    });
+
+    // Search with debounce
+    $(document).on('input', '#wphoula-products-search', function () {
+        var val = $(this).val();
+        clearTimeout(syncedProductsSearchTimer);
+        syncedProductsSearchTimer = setTimeout(function () {
+            syncedProductsSearch = val;
+            syncedProductsPage = 1;
+            loadSyncedProducts();
+        }, 400);
+    });
 
     // Utility: escape HTML
     function escapeHtml(text) {

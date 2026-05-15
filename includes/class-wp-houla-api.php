@@ -132,16 +132,22 @@ class Wp_Houla_Api {
 
         $args = array(
             'method'  => $method,
-            'timeout' => 30,
+            'timeout' => strpos( $endpoint, '/batch' ) !== false ? 120 : 30,
             'headers' => array_merge(
                 $auth_headers,
                 array(
                     'Content-Type'  => 'application/json',
                     'Accept'        => 'application/json',
                     'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+                    'ngrok-skip-browser-warning' => 'true',
                 )
             ),
         );
+
+        // Disable SSL verification for ngrok/localhost dev tunnels
+        if ( strpos( $url, 'ngrok' ) !== false || strpos( $url, 'localhost' ) !== false || strpos( $url, '127.0.0.1' ) !== false ) {
+            $args['sslverify'] = false;
+        }
 
         if ( in_array( $method, array( 'POST', 'PATCH' ), true ) && ! empty( $body ) ) {
             $args['body'] = wp_json_encode( $body );

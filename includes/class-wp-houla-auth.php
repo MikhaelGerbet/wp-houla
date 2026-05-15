@@ -103,7 +103,7 @@ class Wp_Houla_Auth {
         $token_url = function_exists( 'wphoula_get_token_url' ) ? wphoula_get_token_url() : WPHOULA_OAUTH_TOKEN_URL;
         $response = wp_remote_post( $token_url, array(
             'timeout' => 30,
-            'headers' => array( 'Content-Type' => 'application/json' ),
+            'headers' => array( 'Content-Type' => 'application/json', 'ngrok-skip-browser-warning' => 'true' ),
             'body'    => wp_json_encode( array(
                 'grant_type'    => 'authorization_code',
                 'client_id'     => WPHOULA_OAUTH_CLIENT_ID,
@@ -143,7 +143,7 @@ class Wp_Houla_Auth {
         $token_url = function_exists( 'wphoula_get_token_url' ) ? wphoula_get_token_url() : WPHOULA_OAUTH_TOKEN_URL;
         $response = wp_remote_post( $token_url, array(
             'timeout' => 30,
-            'headers' => array( 'Content-Type' => 'application/json' ),
+            'headers' => array( 'Content-Type' => 'application/json', 'ngrok-skip-browser-warning' => 'true' ),
             'body'    => wp_json_encode( array(
                 'grant_type'    => 'refresh_token',
                 'client_id'     => WPHOULA_OAUTH_CLIENT_ID,
@@ -325,8 +325,16 @@ class Wp_Houla_Auth {
             return;
         }
 
+        $workspace_id = $this->options->get( 'workspace_id' );
+        if ( empty( $workspace_id ) ) {
+            $this->log( 'Cannot provision API key: no workspace_id' );
+            return;
+        }
+
         $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
-        $url     = $api_url . '/api/ecommerce/api-key';
+        $url     = $api_url . '/api/keys';
+
+        $site_name = wp_parse_url( get_site_url(), PHP_URL_HOST );
 
         $response = wp_remote_post( $url, array(
             'timeout' => 30,
@@ -335,9 +343,12 @@ class Wp_Houla_Auth {
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json',
                 'User-Agent'    => 'wp-houla/' . WPHOULA_VERSION,
+                'X-Workspace-Id' => $workspace_id,
+                'ngrok-skip-browser-warning' => 'true',
             ),
             'body' => wp_json_encode( array(
-                'site_url' => get_site_url(),
+                'name' => 'WordPress — ' . $site_name,
+                'type' => 'internal',
             ) ),
         ) );
 
@@ -350,9 +361,9 @@ class Wp_Houla_Auth {
         $body   = json_decode( wp_remote_retrieve_body( $response ), true );
 
         if ( 201 === $status || 200 === $status ) {
-            if ( ! empty( $body['api_key'] ) ) {
-                $this->options->set( 'api_key', Wp_Houla_Options::encrypt( $body['api_key'] ) );
-                $this->log( 'API key provisioned successfully: ' . ( $body['key_prefix'] ?? '?' ) );
+            if ( ! empty( $body['key'] ) ) {
+                $this->options->set( 'api_key', Wp_Houla_Options::encrypt( $body['key'] ) );
+                $this->log( 'API key provisioned successfully: ' . ( $body['prefix'] ?? '?' ) );
             }
         } else {
             $msg = isset( $body['message'] ) ? $body['message'] : 'HTTP ' . $status;

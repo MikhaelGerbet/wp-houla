@@ -354,7 +354,8 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
             }
             ?>
 
-            <table class="wphoula-mapping-table widefat" id="wphoula-mapping-table">
+            <div class="wphoula-scroll-container" style="max-height: 400px; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px;">
+            <table class="wphoula-mapping-table widefat" id="wphoula-mapping-table" style="border:none;">
                 <thead>
                     <tr>
                         <th style="width:40%;"><?php esc_html_e( 'WooCommerce Category', 'wp-houla' ); ?></th>
@@ -391,6 +392,7 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                     ?>
                 </tbody>
             </table>
+            </div><!-- /.wphoula-scroll-container -->
 
             <p style="margin-top: 12px;">
                 <button type="button" class="button button-secondary" id="wphoula-auto-map">
@@ -475,6 +477,7 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                                     <?php esc_html_e( 'Select all', 'wp-houla' ); ?>
                                 </label>
                                 <hr style="margin: 4px 0 8px;">
+                                <div class="wphoula-scroll-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #c3c4c7; border-radius: 4px; padding: 8px 12px;">
                             <?php
                                 foreach ( $product_cats as $cat ) :
                                     $checked = in_array( (int) $cat->term_id, array_map( 'intval', $sync_categories ), true );
@@ -486,6 +489,9 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                                 </label>
                             <?php
                                 endforeach;
+                            ?>
+                                </div><!-- /.wphoula-scroll-container -->
+                            <?php
                             else :
                             ?>
                                 <p class="description"><?php esc_html_e( 'No WooCommerce categories found.', 'wp-houla' ); ?></p>
@@ -511,10 +517,6 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
 
             <table class="form-table">
                 <tr>
-                    <th><?php esc_html_e( 'Produits synchronisés', 'wp-houla' ); ?></th>
-                    <td><strong id="wphoula-products-synced-count"><?php echo esc_html( $products_synced ?: '0' ); ?></strong></td>
-                </tr>
-                <tr>
                     <th><?php esc_html_e( 'Dernière synchronisation', 'wp-houla' ); ?></th>
                     <td id="wphoula-last-full-sync"><?php echo $last_full_sync ? esc_html( $last_full_sync ) : esc_html__( 'Jamais', 'wp-houla' ); ?></td>
                 </tr>
@@ -523,6 +525,9 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
             <p>
                 <button type="button" class="button button-primary" id="wphoula-batch-sync">
                     <?php esc_html_e( 'Synchroniser les produits', 'wp-houla' ); ?>
+                </button>
+                <button type="button" class="button" id="wphoula-cancel-sync" style="display:none; color:#b32d2e; border-color:#b32d2e;">
+                    <?php esc_html_e( 'Annuler la synchronisation', 'wp-houla' ); ?>
                 </button>
                 <?php if ( function_exists( 'wphoula_is_dev_mode' ) && wphoula_is_dev_mode() ) : ?>
                 <button type="button" class="button" id="wphoula-reset-sync" style="color:#b32d2e;border-color:#b32d2e;">
@@ -550,6 +555,17 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                 <?php esc_html_e( 'Products currently synchronized on Hou.la from this WooCommerce store.', 'wp-houla' ); ?>
             </p>
 
+            <!-- Search + per-page controls -->
+            <div class="wphoula-products-toolbar" style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
+                <input type="search" id="wphoula-products-search" placeholder="<?php esc_attr_e( 'Search products...', 'wp-houla' ); ?>" style="min-width:220px; max-width:320px;">
+                <select id="wphoula-products-per-page" style="width:auto;">
+                    <option value="20">20 / page</option>
+                    <option value="50">50 / page</option>
+                    <option value="100">100 / page</option>
+                </select>
+                <span id="wphoula-products-total" style="color:#666; margin-left:auto;"></span>
+            </div>
+
             <div id="wphoula-synced-products-loading" style="padding: 20px; text-align: center;">
                 <span class="spinner is-active" style="float:none; margin: 0 8px 0 0;"></span>
                 <?php esc_html_e( 'Loading synced products...', 'wp-houla' ); ?>
@@ -569,6 +585,15 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
                 </thead>
                 <tbody></tbody>
             </table>
+
+            <!-- Pagination controls -->
+            <div id="wphoula-products-pagination" style="display:none; margin-top:12px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <button type="button" class="button" id="wphoula-products-prev" disabled>&laquo; <?php esc_html_e( 'Previous', 'wp-houla' ); ?></button>
+                    <span id="wphoula-products-page-info" style="margin:0 12px; color:#666;"></span>
+                    <button type="button" class="button" id="wphoula-products-next"><?php esc_html_e( 'Next', 'wp-houla' ); ?> &raquo;</button>
+                </div>
+            </div>
 
             <div id="wphoula-synced-products-empty" style="display:none; padding: 20px; text-align: center; color: #666;">
                 <?php esc_html_e( 'No products synced yet. Click "Sync All Products Now" to start.', 'wp-houla' ); ?>

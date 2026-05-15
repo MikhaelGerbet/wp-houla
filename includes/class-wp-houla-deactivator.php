@@ -17,6 +17,8 @@ class Wp_Houla_Deactivator {
      */
     public static function deactivate() {
         delete_transient( 'wphoula_batch_sync_running' );
+        delete_transient( 'wphoula_bg_sync_status' );
+        delete_transient( 'wphoula_bg_sync_nonce' );
         flush_rewrite_rules();
     }
 }

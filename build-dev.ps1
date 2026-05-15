@@ -167,8 +167,9 @@ foreach ($file in $files) {
             "define( 'WPHOULADEV_API_URL', '$DevApiUrl' )"
     }
 
-    # Write back
-    Set-Content -Path $file.FullName -Value $content -Encoding UTF8 -NoNewline
+    # Write back (UTF-8 WITHOUT BOM — PowerShell 5.1's -Encoding UTF8 adds BOM)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($file.FullName, $content, $utf8NoBom)
 }
 
 # =========================================================================
