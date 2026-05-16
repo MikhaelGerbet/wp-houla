@@ -34,6 +34,9 @@ class Wp_Houla {
         if ( wphoula_is_woocommerce_active() ) {
             $this->define_woocommerce_hooks();
         }
+
+        // Cron sync — always register the hook (even if WooCommerce is temporarily disabled)
+        $this->define_cron_hooks();
     }
 
     // =====================================================================
@@ -230,6 +233,58 @@ class Wp_Houla {
 
     public function run() {
         $this->loader->run();
+    }
+
+    // =====================================================================
+    // WP-Cron scheduled sync
+    // =====================================================================
+
+    /**
+     * Register cron hooks for automatic background sync.
+     */
+    private function define_cron_hooks() {
+        // Register a custom cron interval (every 6 hours)
+        add_filter( 'cron_schedules', array( $this, 'add_cron_schedules' ) );
+
+        // The actual cron action
+        add_action( 'wphoula_cron_sync', array( $this, 'run_cron_sync' ) );
+
+        // Self-heal: if cron was never scheduled (e.g. plugin updated without re-activation), schedule now
+        if ( ! wp_next_scheduled( 'wphoula_cron_sync' ) ) {
+            wp_schedule_event( time() + 60, 'wphoula_every_6h', 'wphoula_cron_sync' );
+        }
+    }
+
+    /**
+     * Add custom cron intervals.
+     *
+     * @param array $schedules Existing schedules.
+     * @return array
+     */
+    public function add_cron_schedules( $schedules ) {
+        $schedules['wphoula_every_6h'] = array(
+            'interval' => 6 * HOUR_IN_SECONDS,
+            'display'  => __( 'Every 6 hours (Hou.la sync)', 'wp-houla' ),
+        );
+        $schedules['wphoula_every_1h'] = array(
+            'interval' => HOUR_IN_SECONDS,
+            'display'  => __( 'Every hour (Hou.la sync)', 'wp-houla' ),
+        );
+        return $schedules;
+    }
+
+    /**
+     * Execute the scheduled cron sync.
+     * Called by WP-Cron — runs without any user/AJAX context.
+     */
+    public function run_cron_sync() {
+        // Bail if WooCommerce is not active
+        if ( ! function_exists( 'wc_get_products' ) ) {
+            return;
+        }
+
+        $sync = new Wp_Houla_Sync();
+        $sync->cron_full_sync();
     }
 
     public function get_plugin_name() {

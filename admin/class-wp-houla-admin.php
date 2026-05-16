@@ -821,6 +821,12 @@ class Wp_Houla_Admin {
         $result = $api->get( '/ecommerce/products?platform=woocommerce' );
 
         if ( is_wp_error( $result ) ) {
+            // Fallback: use local WP post_meta to show synced products
+            $fallback = $this->get_synced_products_from_local( $page, $per_page, $search );
+            if ( ! empty( $fallback['products'] ) ) {
+                $fallback['api_error'] = $result->get_error_message();
+                wp_send_json_success( $fallback );
+            }
             wp_send_json_error( $result->get_error_message() );
         }
 

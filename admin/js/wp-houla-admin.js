@@ -1129,7 +1129,14 @@
         }, function (response) {
             $loading.hide();
 
-            if (!response.success || !response.data || !response.data.products || response.data.products.length === 0) {
+            if (!response.success) {
+                var errMsg = (response.data && typeof response.data === 'string') ? response.data : 'Failed to load synced products';
+                $empty.html('<p style="color:#d63638;"><span class="dashicons dashicons-warning" style="margin-right:4px;"></span>' + escapeHtml(errMsg) + '</p>').show();
+                $('#wphoula-products-total').text('');
+                return;
+            }
+
+            if (!response.data || !response.data.products || response.data.products.length === 0) {
                 $empty.show();
                 $('#wphoula-products-total').text('');
                 return;
@@ -1191,9 +1198,13 @@
             } else {
                 $pagination.hide();
             }
-        }).fail(function () {
+        }).fail(function (jqXHR) {
             $loading.hide();
-            $empty.show();
+            var errMsg = 'Network error — unable to load synced products';
+            if (jqXHR.status) {
+                errMsg += ' (HTTP ' + jqXHR.status + ')';
+            }
+            $empty.html('<p style="color:#d63638;"><span class="dashicons dashicons-warning" style="margin-right:4px;"></span>' + escapeHtml(errMsg) + '</p>').show();
         });
     }
 

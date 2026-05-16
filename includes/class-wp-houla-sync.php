@@ -1466,4 +1466,97 @@ class Wp_Houla_Sync {
                 return $price;
         }
     }
+
+    // =====================================================================
+    // WP-Cron full sync
+    // =====================================================================
+
+    /**
+     * Run a full product sync from WP-Cron context.
+     *
+     * Mirrors the logic of ajax_bg_sync_process() in Wp_Houla_Admin,
+     * but without AJAX context (no nonce, no wp_send_json).
+     * Uses the same flock mechanism to avoid overlap with manual syncs.
+     */
+    public function cron_full_sync() {
+        // Only sync if connected
+        if ( ! $this->auth->is_connected() ) {
+            $this->log( '[CronSync] Skipped: not connected.' );
+            return;
+        }
+
+        // ═══ 1. ACQUIRE EXCLUSIVE LOCK ═══
+        $lock_file = sys_get_temp_dir() . '/wphoula_sync_' . md5( ABSPATH ) . '.lock';
+        $lock_fp   = fopen( $lock_file, 'w' );
+        if ( ! $lock_fp || ! flock( $lock_fp, LOCK_EX | LOCK_NB ) ) {
+            if ( $lock_fp ) {
+                fclose( $lock_fp );
+            }
+            $this->log( '[CronSync] Skipped: another sync is already running.' );
+            return;
+        }
+
+        // ═══ 2. ALLOW LONG EXECUTION ═══
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( 1800 );
+        }
+        ignore_user_abort( true );
+
+        $this->log( '[CronSync] Starting automatic sync...' );
+
+        // Register connection on start
+        $this->register_connection();
+
+        $page         = 1;
+        $total_synced = 0;
+        $total_errors = 0;
+        $max_retries  = 3;
+
+        // ═══ 3. MAIN LOOP ═══
+        while ( true ) {
+            $result = null;
+            for ( $attempt = 1; $attempt <= $max_retries; $attempt++ ) {
+                $result = $this->batch_sync_page( $page );
+
+                if ( empty( $result['connection_error'] ) ) {
+                    break;
+                }
+
+                if ( $attempt < $max_retries ) {
+                    sleep( $attempt * 5 );
+                }
+            }
+
+            $total_synced += $result['synced'];
+            $total_errors += $result['errors'];
+
+            // Connection error after all retries → abort
+            if ( ! empty( $result['connection_error'] ) ) {
+                $msg = isset( $result['error_message'] ) ? $result['error_message'] : 'Connection error';
+                $this->log( '[CronSync] Aborted at page ' . $page . ': ' . $msg );
+                break;
+            }
+
+            if ( ! $result['has_more'] ) {
+                break;
+            }
+
+            $page++;
+            usleep( 500000 ); // 500ms between pages
+        }
+
+        // ═══ 4. UPDATE COUNTERS ═══
+        $this->options->set_many( array(
+            'products_synced' => $total_synced,
+            'last_full_sync'  => current_time( 'mysql' ),
+            'last_cron_sync'  => current_time( 'mysql' ),
+        ) );
+
+        $this->log( '[CronSync] Completed: ' . $total_synced . ' synced, ' . $total_errors . ' errors.' );
+
+        // ═══ 5. RELEASE LOCK ═══
+        flock( $lock_fp, LOCK_UN );
+        fclose( $lock_fp );
+        @unlink( $lock_file );
+    }
 }

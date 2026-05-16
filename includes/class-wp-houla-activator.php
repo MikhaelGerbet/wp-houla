@@ -46,6 +46,11 @@ class Wp_Houla_Activator {
 
         // Flush rewrite rules so the REST endpoint is accessible
         flush_rewrite_rules();
+
+        // Schedule automatic WP-Cron sync (every 6 hours by default)
+        if ( ! wp_next_scheduled( 'wphoula_cron_sync' ) ) {
+            wp_schedule_event( time() + 60, 'wphoula_every_6h', 'wphoula_cron_sync' );
+        }
     }
 
     /**

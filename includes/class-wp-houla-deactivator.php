@@ -19,6 +19,10 @@ class Wp_Houla_Deactivator {
         delete_transient( 'wphoula_batch_sync_running' );
         delete_transient( 'wphoula_bg_sync_status' );
         delete_transient( 'wphoula_bg_sync_nonce' );
+
+        // Remove scheduled cron sync
+        wp_clear_scheduled_hook( 'wphoula_cron_sync' );
+
         flush_rewrite_rules();
     }
 }
