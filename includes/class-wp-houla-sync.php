@@ -104,6 +104,103 @@ class Wp_Houla_Sync {
     }
 
     // =====================================================================
+    // Multi-workspace routing (category_workspace_map)
+    // =====================================================================
+
+    /**
+     * Resolve the workspace overrides for a product based on its categories.
+     *
+     * Looks up the category_workspace_map option to find which workspace
+     * should receive this product. Returns API overrides (api_key, workspace_id)
+     * and optional per-workspace price adjustment.
+     *
+     * @param WC_Product $product WooCommerce product.
+     * @return array|null Null if no workspace mapping found (use default).
+     *   Otherwise: {
+     *     workspace_id: string,
+     *     workspace_name: string,
+     *     api_key: string (decrypted),
+     *     overrides: array (for Wp_Houla_Api calls),
+     *     price_adjustment_type: string,
+     *     price_adjustment_value: float,
+     *   }
+     */
+    private function resolve_workspace_for_product( $product ) {
+        $ws_map = $this->options->get( 'category_workspace_map' );
+        if ( empty( $ws_map ) || ! is_array( $ws_map ) ) {
+            return null;
+        }
+
+        $cat_ids = wp_get_post_terms( $product->get_id(), 'product_cat', array( 'fields' => 'ids' ) );
+        if ( is_wp_error( $cat_ids ) || empty( $cat_ids ) ) {
+            return null;
+        }
+
+        // Find the first matching category in the workspace map
+        foreach ( $cat_ids as $cat_id ) {
+            if ( isset( $ws_map[ $cat_id ] ) && ! empty( $ws_map[ $cat_id ]['workspace_id'] ) ) {
+                $entry = $ws_map[ $cat_id ];
+                $api_key = ! empty( $entry['api_key'] )
+                    ? Wp_Houla_Options::decrypt( $entry['api_key'] )
+                    : null;
+
+                if ( empty( $api_key ) ) {
+                    $this->log( 'Workspace map: category ' . $cat_id . ' has no API key, skipping override.' );
+                    continue;
+                }
+
+                return array(
+                    'workspace_id'           => $entry['workspace_id'],
+                    'workspace_name'         => $entry['workspace_name'] ?? '',
+                    'api_key'                => $api_key,
+                    'overrides'              => array(
+                        'api_key'      => $api_key,
+                        'workspace_id' => $entry['workspace_id'],
+                    ),
+                    'price_adjustment_type'  => $entry['price_adjustment_type'] ?? 'none',
+                    'price_adjustment_value' => (float) ( $entry['price_adjustment_value'] ?? 0 ),
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Format a product with optional workspace-specific price adjustment.
+     *
+     * @param WC_Product  $product   WooCommerce product.
+     * @param array|null  $ws_info   Workspace info from resolve_workspace_for_product().
+     * @return array Formatted product data.
+     */
+    private function format_product_for_workspace( $product, $ws_info = null ) {
+        // Temporarily override price adjustment if workspace has its own
+        $orig_type  = null;
+        $orig_value = null;
+
+        if ( $ws_info && $ws_info['price_adjustment_type'] !== 'none' && $ws_info['price_adjustment_value'] > 0 ) {
+            $orig_type  = $this->options->get( 'price_adjustment_type' );
+            $orig_value = $this->options->get( 'price_adjustment_value' );
+            $this->options->set_many( array(
+                'price_adjustment_type'  => $ws_info['price_adjustment_type'],
+                'price_adjustment_value' => $ws_info['price_adjustment_value'],
+            ) );
+        }
+
+        $data = $this->format_product( $product );
+
+        // Restore original price adjustment
+        if ( $orig_type !== null ) {
+            $this->options->set_many( array(
+                'price_adjustment_type'  => $orig_type,
+                'price_adjustment_value' => $orig_value,
+            ) );
+        }
+
+        return $data;
+    }
+
+    // =====================================================================
     // Hook callbacks (called from class-wp-houla.php)
     // =====================================================================
 
@@ -129,15 +226,20 @@ class Wp_Houla_Sync {
         }
 
         self::$syncing = true;
-        $data          = $this->format_product( $product );
-        $result        = $this->api->post( '/ecommerce/products', $data );
+        $ws_info       = $this->resolve_workspace_for_product( $product );
+        $data          = $this->format_product_for_workspace( $product, $ws_info );
+        $overrides     = $ws_info ? $ws_info['overrides'] : array();
+        $result        = $this->api->post( '/ecommerce/products', $data, $overrides );
 
         if ( ! is_wp_error( $result ) && isset( $result['id'] ) ) {
             update_post_meta( $product_id, '_wphoula_product_id', $result['id'] );
             update_post_meta( $product_id, '_wphoula_synced', 1 );
             update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+            if ( $ws_info ) {
+                update_post_meta( $product_id, '_wphoula_workspace_id', $ws_info['workspace_id'] );
+            }
             $this->increment_counter( 'products_synced' );
-            $this->log( 'Product #' . $product_id . ' created on Hou.la (ID: ' . $result['id'] . ').' );
+            $this->log( 'Product #' . $product_id . ' created on Hou.la (ID: ' . $result['id'] . ')' . ( $ws_info ? ' [ws:' . $ws_info['workspace_name'] . ']' : '' ) . '.' );
         } else {
             $msg = is_wp_error( $result ) ? $result->get_error_message() : 'Unknown error';
             $this->log( 'Failed to create product #' . $product_id . ': ' . $msg );
@@ -172,12 +274,17 @@ class Wp_Houla_Sync {
         }
 
         self::$syncing = true;
-        $data          = $this->format_product( $product );
-        $result        = $this->api->patch( '/ecommerce/products/' . $houla_id, $data );
+        $ws_info       = $this->resolve_workspace_for_product( $product );
+        $data          = $this->format_product_for_workspace( $product, $ws_info );
+        $overrides     = $ws_info ? $ws_info['overrides'] : array();
+        $result        = $this->api->patch( '/ecommerce/products/' . $houla_id, $data, $overrides );
 
         if ( ! is_wp_error( $result ) ) {
             update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
-            $this->log( 'Product #' . $product_id . ' updated on Hou.la.' );
+            if ( $ws_info ) {
+                update_post_meta( $product_id, '_wphoula_workspace_id', $ws_info['workspace_id'] );
+            }
+            $this->log( 'Product #' . $product_id . ' updated on Hou.la' . ( $ws_info ? ' [ws:' . $ws_info['workspace_name'] . ']' : '' ) . '.' );
         } else {
             $this->log( 'Failed to update product #' . $product_id . ': ' . $result->get_error_message() );
         }
@@ -201,12 +308,32 @@ class Wp_Houla_Sync {
         }
 
         self::$syncing = true;
-        $result        = $this->api->delete( '/ecommerce/products/' . $houla_id );
+
+        // Resolve workspace overrides for the delete call
+        $overrides = array();
+        $stored_ws = get_post_meta( $product_id, '_wphoula_workspace_id', true );
+        if ( ! empty( $stored_ws ) ) {
+            $ws_map = $this->options->get( 'category_workspace_map' );
+            if ( is_array( $ws_map ) ) {
+                foreach ( $ws_map as $entry ) {
+                    if ( isset( $entry['workspace_id'] ) && $entry['workspace_id'] === $stored_ws && ! empty( $entry['api_key'] ) ) {
+                        $api_key = Wp_Houla_Options::decrypt( $entry['api_key'] );
+                        if ( $api_key ) {
+                            $overrides = array( 'api_key' => $api_key, 'workspace_id' => $stored_ws );
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        $result = $this->api->delete( '/ecommerce/products/' . $houla_id, $overrides );
 
         if ( ! is_wp_error( $result ) ) {
             delete_post_meta( $product_id, '_wphoula_product_id' );
             delete_post_meta( $product_id, '_wphoula_synced' );
             delete_post_meta( $product_id, '_wphoula_sync_at' );
+            delete_post_meta( $product_id, '_wphoula_workspace_id' );
             $this->log( 'Product #' . $product_id . ' deleted from Hou.la.' );
         } else {
             $this->log( 'Failed to delete product #' . $product_id . ': ' . $result->get_error_message() );
@@ -248,11 +375,30 @@ class Wp_Houla_Sync {
         }
 
         self::$syncing = true;
-        $result        = $this->api->patch( '/ecommerce/products/' . $houla_id . '/stock', array(
+
+        // Resolve workspace overrides for the stock update
+        $overrides = array();
+        $stored_ws = get_post_meta( $product_id, '_wphoula_workspace_id', true );
+        if ( ! empty( $stored_ws ) ) {
+            $ws_map = $this->options->get( 'category_workspace_map' );
+            if ( is_array( $ws_map ) ) {
+                foreach ( $ws_map as $entry ) {
+                    if ( isset( $entry['workspace_id'] ) && $entry['workspace_id'] === $stored_ws && ! empty( $entry['api_key'] ) ) {
+                        $api_key = Wp_Houla_Options::decrypt( $entry['api_key'] );
+                        if ( $api_key ) {
+                            $overrides = array( 'api_key' => $api_key, 'workspace_id' => $stored_ws );
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        $result = $this->api->patch( '/ecommerce/products/' . $houla_id . '/stock', array(
             'stock_quantity' => $product->get_stock_quantity(),
             'stock_status'   => $product->get_stock_status(),
             'manage_stock'   => $product->get_manage_stock(),
-        ) );
+        ), $overrides );
 
         if ( ! is_wp_error( $result ) ) {
             update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
@@ -334,112 +480,127 @@ class Wp_Houla_Sync {
         $synced = 0;
         $errors = 0;
 
-        // Build batch payload — separate new vs existing products
-        $new_products_data  = array(); // Products without a Hou.la ID → batch create
-        $new_products_wcids = array(); // Corresponding WC product IDs
-        $update_items       = array(); // Products with a Hou.la ID → individual update (needs Hou.la UUID in URL)
+        // Group products by workspace (default workspace vs mapped workspaces)
+        // Each group: { overrides: array, new: [{data, wc_id}], update: [{data, wc_id, houla_id}] }
+        $groups = array();
 
         foreach ( $products as $product ) {
             $product_id = $product->get_id();
             $houla_id   = get_post_meta( $product_id, '_wphoula_product_id', true );
-            $data       = $this->format_product( $product );
+            $ws_info    = $this->resolve_workspace_for_product( $product );
+
+            $group_key  = $ws_info ? $ws_info['workspace_id'] : '_default';
+
+            if ( ! isset( $groups[ $group_key ] ) ) {
+                $groups[ $group_key ] = array(
+                    'overrides' => $ws_info ? $ws_info['overrides'] : array(),
+                    'ws_info'   => $ws_info,
+                    'new'       => array(),
+                    'update'    => array(),
+                );
+            }
+
+            $data = $this->format_product_for_workspace( $product, $ws_info );
 
             if ( $houla_id ) {
-                $update_items[] = array( 'wc_id' => $product_id, 'houla_id' => $houla_id, 'data' => $data );
+                $groups[ $group_key ]['update'][] = array( 'wc_id' => $product_id, 'houla_id' => $houla_id, 'data' => $data );
             } else {
-                $new_products_data[]  = $data;
-                $new_products_wcids[] = $product_id;
+                $groups[ $group_key ]['new'][] = array( 'wc_id' => $product_id, 'data' => $data );
             }
         }
 
-        // 1. Batch-create new products in a single API call
-        if ( ! empty( $new_products_data ) ) {
-            $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $new_products_data ) );
+        // Process each workspace group
+        foreach ( $groups as $group_key => $group ) {
+            $overrides = $group['overrides'];
+            $ws_info   = $group['ws_info'];
 
-            if ( is_wp_error( $batch_result ) ) {
-                $error_msg = $batch_result->get_error_message();
-                $this->log( 'Batch create error: ' . $error_msg );
+            // 1. Batch-create new products
+            if ( ! empty( $group['new'] ) ) {
+                $new_data  = array_map( function( $item ) { return $item['data']; }, $group['new'] );
+                $new_wcids = array_map( function( $item ) { return $item['wc_id']; }, $group['new'] );
 
-                if ( $this->is_connection_error( $batch_result ) ) {
-                    return array(
-                        'synced'           => 0,
-                        'errors'           => count( $new_products_data ),
-                        'page'             => $page,
-                        'has_more'         => false,
-                        'connection_error' => true,
-                        'error_message'    => $error_msg,
-                    );
-                }
+                $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $new_data ), $overrides );
 
-                $errors += count( $new_products_data );
-            } else {
-                // Process batch results — map created IDs back to WC products
-                $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
-                foreach ( $details as $idx => $detail ) {
-                    $wc_id = isset( $new_products_wcids[ $idx ] ) ? $new_products_wcids[ $idx ] : null;
-                    if ( ! $wc_id ) {
-                        continue;
+                if ( is_wp_error( $batch_result ) ) {
+                    $error_msg = $batch_result->get_error_message();
+                    $this->log( 'Batch create error' . ( $group_key !== '_default' ? ' [ws:' . $group_key . ']' : '' ) . ': ' . $error_msg );
+
+                    if ( $this->is_connection_error( $batch_result ) ) {
+                        return array(
+                            'synced'           => $synced,
+                            'errors'           => $errors + count( $group['new'] ),
+                            'page'             => $page,
+                            'has_more'         => false,
+                            'connection_error' => true,
+                            'error_message'    => $error_msg,
+                        );
                     }
 
-                    if ( isset( $detail['error'] ) ) {
-                        $errors++;
-                        $this->log( 'Batch create error for WC #' . $wc_id . ': ' . $detail['error'] );
-                    } else {
-                        if ( isset( $detail['id'] ) ) {
-                            update_post_meta( $wc_id, '_wphoula_product_id', $detail['id'] );
+                    $errors += count( $group['new'] );
+                } else {
+                    $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
+                    foreach ( $details as $idx => $detail ) {
+                        $wc_id = isset( $new_wcids[ $idx ] ) ? $new_wcids[ $idx ] : null;
+                        if ( ! $wc_id ) { continue; }
+
+                        if ( isset( $detail['error'] ) ) {
+                            $errors++;
+                            $this->log( 'Batch create error for WC #' . $wc_id . ': ' . $detail['error'] );
+                        } else {
+                            if ( isset( $detail['id'] ) ) {
+                                update_post_meta( $wc_id, '_wphoula_product_id', $detail['id'] );
+                            }
+                            update_post_meta( $wc_id, '_wphoula_synced', 1 );
+                            update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+                            if ( $ws_info ) {
+                                update_post_meta( $wc_id, '_wphoula_workspace_id', $ws_info['workspace_id'] );
+                            }
+                            $synced++;
                         }
-                        update_post_meta( $wc_id, '_wphoula_synced', 1 );
-                        update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
-                        $synced++;
                     }
                 }
             }
-        }
 
-        // 2. Batch-update existing products (need individual PATCH for Hou.la UUID routing)
-        //    Group into a single batch call using the same endpoint
-        if ( ! empty( $update_items ) ) {
-            // Inject houla_id as external_id override for upsert behavior
-            $update_data  = array();
-            $update_wcids = array();
-            foreach ( $update_items as $item ) {
-                $update_data[]  = $item['data'];
-                $update_wcids[] = $item['wc_id'];
-            }
+            // 2. Batch-update existing products
+            if ( ! empty( $group['update'] ) ) {
+                $update_data  = array_map( function( $item ) { return $item['data']; }, $group['update'] );
+                $update_wcids = array_map( function( $item ) { return $item['wc_id']; }, $group['update'] );
 
-            $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $update_data ) );
+                $batch_result = $this->api->post( '/ecommerce/products/batch', array( 'products' => $update_data ), $overrides );
 
-            if ( is_wp_error( $batch_result ) ) {
-                $error_msg = $batch_result->get_error_message();
-                $this->log( 'Batch update error: ' . $error_msg );
+                if ( is_wp_error( $batch_result ) ) {
+                    $error_msg = $batch_result->get_error_message();
+                    $this->log( 'Batch update error' . ( $group_key !== '_default' ? ' [ws:' . $group_key . ']' : '' ) . ': ' . $error_msg );
 
-                if ( $this->is_connection_error( $batch_result ) ) {
-                    return array(
-                        'synced'           => $synced,
-                        'errors'           => $errors + count( $update_items ),
-                        'page'             => $page,
-                        'has_more'         => false,
-                        'connection_error' => true,
-                        'error_message'    => $error_msg,
-                    );
-                }
-
-                $errors += count( $update_items );
-            } else {
-                $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
-                foreach ( $details as $idx => $detail ) {
-                    $wc_id = isset( $update_wcids[ $idx ] ) ? $update_wcids[ $idx ] : null;
-                    if ( ! $wc_id ) {
-                        continue;
+                    if ( $this->is_connection_error( $batch_result ) ) {
+                        return array(
+                            'synced'           => $synced,
+                            'errors'           => $errors + count( $group['update'] ),
+                            'page'             => $page,
+                            'has_more'         => false,
+                            'connection_error' => true,
+                            'error_message'    => $error_msg,
+                        );
                     }
 
-                    if ( isset( $detail['error'] ) ) {
-                        $errors++;
-                        $this->log( 'Batch update error for WC #' . $wc_id . ': ' . $detail['error'] );
-                    } else {
-                        update_post_meta( $wc_id, '_wphoula_synced', 1 );
-                        update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
-                        $synced++;
+                    $errors += count( $group['update'] );
+                } else {
+                    $details = isset( $batch_result['details'] ) ? $batch_result['details'] : array();
+                    foreach ( $details as $idx => $detail ) {
+                        $wc_id = isset( $update_wcids[ $idx ] ) ? $update_wcids[ $idx ] : null;
+                        if ( ! $wc_id ) { continue; }
+
+                        if ( isset( $detail['error'] ) ) {
+                            $errors++;
+                            $this->log( 'Batch update error for WC #' . $wc_id . ': ' . $detail['error'] );
+                        } else {
+                            update_post_meta( $wc_id, '_wphoula_synced', 1 );
+                            update_post_meta( $wc_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+                            if ( $ws_info ) {
+                                update_post_meta( $wc_id, '_wphoula_workspace_id', $ws_info['workspace_id'] );
+                            }
+                            $synced++;
+                        }
                     }
                 }
             }
@@ -525,14 +686,14 @@ class Wp_Houla_Sync {
             foreach ( $products as $product ) {
                 $product_id = $product->get_id();
                 $houla_id   = get_post_meta( $product_id, '_wphoula_product_id', true );
-                $data       = $this->format_product( $product );
+                $ws_info    = $this->resolve_workspace_for_product( $product );
+                $data       = $this->format_product_for_workspace( $product, $ws_info );
+                $overrides  = $ws_info ? $ws_info['overrides'] : array();
 
                 if ( $houla_id ) {
-                    // Update
-                    $result = $this->api->patch( '/ecommerce/products/' . $houla_id, $data );
+                    $result = $this->api->patch( '/ecommerce/products/' . $houla_id, $data, $overrides );
                 } else {
-                    // Create
-                    $result = $this->api->post( '/ecommerce/products', $data );
+                    $result = $this->api->post( '/ecommerce/products', $data, $overrides );
                 }
 
                 if ( is_wp_error( $result ) ) {
@@ -547,6 +708,9 @@ class Wp_Houla_Sync {
 
                 update_post_meta( $product_id, '_wphoula_synced', 1 );
                 update_post_meta( $product_id, '_wphoula_sync_at', current_time( 'mysql' ) );
+                if ( $ws_info ) {
+                    update_post_meta( $product_id, '_wphoula_workspace_id', $ws_info['workspace_id'] );
+                }
                 $synced++;
             }
 

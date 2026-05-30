@@ -1433,4 +1433,304 @@
         });
     });
 
+    // =================================================================
+    // Multi-workspace mapping
+    // =================================================================
+
+    // Cache of loaded workspaces for the mapping dropdowns
+    var wsMapWorkspaces = null;
+
+    /**
+     * Load workspaces into all workspace mapping dropdowns.
+     */
+    function loadWorkspacesForMapping() {
+        if (wsMapWorkspaces !== null) {
+            populateWsMapSelects(wsMapWorkspaces);
+            return;
+        }
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_get_workspaces',
+            nonce: nonce
+        }, function (response) {
+            if (response.success && response.data && response.data.workspaces) {
+                wsMapWorkspaces = response.data.workspaces;
+                populateWsMapSelects(wsMapWorkspaces);
+            }
+        });
+    }
+
+    function populateWsMapSelects(workspaces) {
+        $('.wphoula-ws-map-select').each(function () {
+            var $select = $(this);
+            var currentVal = $select.val();
+
+            // Remove all options except the first (default)
+            $select.find('option:not(:first)').remove();
+
+            // Add workspace options
+            for (var i = 0; i < workspaces.length; i++) {
+                var ws = workspaces[i];
+                var label = ws.name || ws.id;
+                if (ws.type) label += ' (' + ws.type + ')';
+                $select.append(
+                    $('<option></option>').val(ws.id).text(label)
+                );
+            }
+
+            // Restore selection
+            if (currentVal) {
+                $select.val(currentVal);
+            }
+        });
+    }
+
+    // Load workspaces when sync tab is shown (or on page load if already on sync tab)
+    $(document).ready(function () {
+        if ($('#wphoula-workspace-map-table').length) {
+            loadWorkspacesForMapping();
+        }
+    });
+
+    // When a workspace is selected in the mapping dropdown
+    $(document).on('change', '.wphoula-ws-map-select', function () {
+        var $select = $(this);
+        var catId = $select.data('cat-id');
+        var wsId = $select.val();
+        var $row = $select.closest('tr');
+
+        if (wsId) {
+            $row.addClass('wphoula-ws-mapped');
+
+            // Show price adjustment controls
+            var $adjTd = $row.find('td').eq(4);
+            if (!$adjTd.find('.wphoula-ws-adj-type').length) {
+                $adjTd.html(
+                    '<select class="wphoula-ws-adj-type" data-cat-id="' + catId + '" style="width:100%;">' +
+                    '<option value="none">' + (i18n.noAdjustment || 'None') + '</option>' +
+                    '<option value="percent_up">+%</option>' +
+                    '<option value="percent_down">-%</option>' +
+                    '<option value="fixed_up">+€</option>' +
+                    '<option value="fixed_down">-€</option>' +
+                    '</select>' +
+                    '<input type="number" class="wphoula-ws-adj-value small-text" data-cat-id="' + catId + '" value="0" min="0" step="0.01" style="width:60px; margin-top:4px; display:none;">'
+                );
+            }
+
+            // Show remove button
+            var $actionTd = $row.find('td').eq(5);
+            if (!$actionTd.find('.wphoula-ws-map-remove').length) {
+                $actionTd.html(
+                    '<button type="button" class="button button-small button-link-delete wphoula-ws-map-remove" data-cat-id="' + catId + '">' +
+                    (i18n.removeMapping || 'Remove') +
+                    '</button>'
+                );
+            }
+
+            // Show key status (will be set after save)
+            var $keyTd = $row.find('td').eq(3);
+            $keyTd.html('<span class="description">—</span>');
+        } else {
+            // Reset row when "Default workspace" is selected
+            $row.removeClass('wphoula-ws-mapped');
+            $row.find('td').eq(3).html('<span class="description">—</span>');
+            $row.find('td').eq(4).html('<span class="description">—</span>');
+            $row.find('td').eq(5).html('');
+        }
+    });
+
+    // Toggle price adjustment value input
+    $(document).on('change', '.wphoula-ws-adj-type', function () {
+        var $input = $(this).siblings('.wphoula-ws-adj-value');
+        if ($(this).val() === 'none') {
+            $input.hide();
+        } else {
+            $input.show();
+        }
+    });
+
+    // Remove workspace mapping for a category
+    $(document).on('click', '.wphoula-ws-map-remove', function () {
+        var catId = $(this).data('cat-id');
+        var $row = $(this).closest('tr');
+
+        $row.removeClass('wphoula-ws-mapped');
+        $row.find('.wphoula-ws-map-select').val('');
+        $row.find('td').eq(3).html('<span class="description">—</span>');
+        $row.find('td').eq(4).html('<span class="description">—</span>');
+        $row.find('td').eq(5).html('');
+    });
+
+    // Save workspace mapping
+    $(document).on('click', '#wphoula-save-workspace-map', function () {
+        var $btn = $(this);
+        var $status = $('#wphoula-ws-map-status');
+        $btn.prop('disabled', true);
+        $status.show().text(i18n.savingWorkspaceMap || 'Saving...').css('color', '#666');
+
+        var data = {
+            action: 'wphoula_save_workspace_map',
+            nonce: nonce
+        };
+
+        // Collect all mapped categories
+        var mappedCount = 0;
+        var provisionQueue = [];
+
+        $('.wphoula-ws-map-select').each(function () {
+            var catId = $(this).data('cat-id');
+            var wsId = $(this).val();
+            if (!wsId) return;
+
+            var wsName = $(this).find('option:selected').text();
+            var $row = $(this).closest('tr');
+            var adjType = $row.find('.wphoula-ws-adj-type').val() || 'none';
+            var adjValue = $row.find('.wphoula-ws-adj-value').val() || 0;
+
+            // Check if this workspace needs a key provisioned
+            var $keyStatus = $row.find('.wphoula-key-status--ok');
+            var needsKey = $keyStatus.length === 0;
+
+            data['category_workspace_map[' + catId + '][workspace_id]'] = wsId;
+            data['category_workspace_map[' + catId + '][workspace_name]'] = wsName;
+            data['category_workspace_map[' + catId + '][price_adjustment_type]'] = adjType;
+            data['category_workspace_map[' + catId + '][price_adjustment_value]'] = adjValue;
+            // api_key will be provisioned separately
+
+            if (needsKey) {
+                provisionQueue.push({ catId: catId, wsId: wsId, wsName: wsName });
+            }
+
+            mappedCount++;
+        });
+
+        // First, provision API keys for workspaces that need them
+        if (provisionQueue.length > 0) {
+            $status.text(i18n.provisioningKey || 'Provisioning API keys...');
+            provisionKeysSequentially(provisionQueue, 0, data, function (updatedData) {
+                // Now save the complete mapping
+                saveWorkspaceMap(updatedData, $btn, $status, mappedCount);
+            });
+        } else {
+            saveWorkspaceMap(data, $btn, $status, mappedCount);
+        }
+    });
+
+    /**
+     * Provision API keys one by one for workspaces that need them.
+     */
+    function provisionKeysSequentially(queue, index, data, callback) {
+        if (index >= queue.length) {
+            callback(data);
+            return;
+        }
+
+        var item = queue[index];
+        $.post(ajaxUrl, {
+            action: 'wphoula_provision_workspace_key',
+            nonce: nonce,
+            workspace_id: item.wsId,
+            workspace_name: item.wsName
+        }, function (response) {
+            if (response.success && response.data && response.data.api_key) {
+                data['category_workspace_map[' + item.catId + '][api_key]'] = response.data.api_key;
+
+                // Update UI to show key is configured
+                var $row = $('tr[data-cat-id="' + item.catId + '"]');
+                $row.find('td').eq(3).html(
+                    '<span class="wphoula-key-status wphoula-key-status--ok">' +
+                    '<span class="dashicons dashicons-yes-alt" style="color:#00a32a;"></span> ' +
+                    (i18n.keyProvisioned || 'Configured') +
+                    '</span>'
+                );
+            } else {
+                // Mark as failed but continue
+                var $row = $('tr[data-cat-id="' + item.catId + '"]');
+                $row.find('td').eq(3).html(
+                    '<span class="wphoula-key-status wphoula-key-status--missing">' +
+                    '<span class="dashicons dashicons-warning" style="color:#d63638;"></span> ' +
+                    (response.data || 'Error') +
+                    '</span>'
+                );
+            }
+            provisionKeysSequentially(queue, index + 1, data, callback);
+        }).fail(function () {
+            provisionKeysSequentially(queue, index + 1, data, callback);
+        });
+    }
+
+    /**
+     * Save the workspace mapping via AJAX.
+     */
+    function saveWorkspaceMap(data, $btn, $status, mappedCount) {
+        $.post(ajaxUrl, data, function (response) {
+            $btn.prop('disabled', false);
+            if (response.success) {
+                $status.text((i18n.workspaceMapSaved || 'Mapping saved.') + ' (' + mappedCount + ')').css('color', '#46b450');
+                setTimeout(function () { $status.fadeOut(); }, 4000);
+            } else {
+                $status.text(response.data || (i18n.error || 'Error')).css('color', '#dc3232');
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false);
+            $status.text(i18n.networkError || 'Network error').css('color', '#dc3232');
+        });
+    }
+
+    // Provision a single workspace key (from the "Generate" button)
+    $(document).on('click', '.wphoula-provision-ws-key', function () {
+        var $btn = $(this);
+        var wsId = $btn.data('ws-id');
+        var wsName = $btn.data('ws-name');
+        var catId = $btn.data('cat-id');
+
+        $btn.prop('disabled', true).text('...');
+
+        $.post(ajaxUrl, {
+            action: 'wphoula_provision_workspace_key',
+            nonce: nonce,
+            workspace_id: wsId,
+            workspace_name: wsName
+        }, function (response) {
+            if (response.success && response.data && response.data.api_key) {
+                // Save the key to the mapping immediately
+                var saveData = {
+                    action: 'wphoula_save_workspace_map',
+                    nonce: nonce
+                };
+
+                // Reload current mapping and add the key
+                $('.wphoula-ws-map-select').each(function () {
+                    var cid = $(this).data('cat-id');
+                    var wid = $(this).val();
+                    if (!wid) return;
+
+                    var wName = $(this).find('option:selected').text();
+                    var $r = $(this).closest('tr');
+                    saveData['category_workspace_map[' + cid + '][workspace_id]'] = wid;
+                    saveData['category_workspace_map[' + cid + '][workspace_name]'] = wName;
+                    saveData['category_workspace_map[' + cid + '][price_adjustment_type]'] = $r.find('.wphoula-ws-adj-type').val() || 'none';
+                    saveData['category_workspace_map[' + cid + '][price_adjustment_value]'] = $r.find('.wphoula-ws-adj-value').val() || 0;
+                    if (parseInt(cid) === parseInt(catId)) {
+                        saveData['category_workspace_map[' + cid + '][api_key]'] = response.data.api_key;
+                    }
+                });
+
+                $.post(ajaxUrl, saveData, function () {
+                    var $row = $('tr[data-cat-id="' + catId + '"]');
+                    $row.find('td').eq(3).html(
+                        '<span class="wphoula-key-status wphoula-key-status--ok">' +
+                        '<span class="dashicons dashicons-yes-alt" style="color:#00a32a;"></span> Configured' +
+                        '</span>'
+                    );
+                });
+            } else {
+                $btn.prop('disabled', false).text('Generate');
+                alert(response.data || 'Error');
+            }
+        }).fail(function () {
+            $btn.prop('disabled', false).text('Generate');
+        });
+    });
+
 })(jQuery);

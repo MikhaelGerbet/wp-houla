@@ -513,6 +513,29 @@
 }
 
 /* =====================================================================
+   Multi-workspace mapping rows
+   ===================================================================== */
+
+.wphoula-ws-map-row.wphoula-ws-mapped {
+    background: #f0f6fc;
+}
+.wphoula-ws-map-row.wphoula-ws-mapped td {
+    border-bottom-color: #c3d1e0;
+}
+.wphoula-key-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+.wphoula-key-status--ok {
+    color: #00a32a;
+}
+.wphoula-key-status--missing {
+    color: #d63638;
+}
+
+/* =====================================================================
    Synced products table
    ===================================================================== */
 

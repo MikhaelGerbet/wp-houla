@@ -135,6 +135,10 @@ class Wp_Houla {
             $this->loader->add_action( 'wp_ajax_wphoula_reset_sync', $admin, 'ajax_reset_sync' );
             $this->loader->add_action( 'wp_ajax_wphoula_get_product_meta_keys', $admin, 'ajax_get_product_meta_keys' );
 
+            // Multi-workspace mapping AJAX actions
+            $this->loader->add_action( 'wp_ajax_wphoula_save_workspace_map', $admin, 'ajax_save_workspace_map' );
+            $this->loader->add_action( 'wp_ajax_wphoula_provision_workspace_key', $admin, 'ajax_provision_workspace_key' );
+
             // Order resync AJAX actions
             $this->loader->add_action( 'wp_ajax_wphoula_resync_order', $admin, 'ajax_resync_order' );
             $this->loader->add_action( 'wp_ajax_wphoula_batch_resync_orders', $admin, 'ajax_batch_resync_orders' );

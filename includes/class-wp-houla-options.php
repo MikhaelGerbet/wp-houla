@@ -51,6 +51,9 @@ class Wp_Houla_Options {
             'price_adjustment_value' => 0,
             // Category -> Collection mapping
             'category_collection_map' => array(),  // cat_term_id => collection_id
+            // Category -> Workspace mapping (multi-workspace routing for dropshipping)
+            // Structure: cat_term_id => { workspace_id, workspace_name, api_key (encrypted), price_adjustment_type, price_adjustment_value }
+            'category_workspace_map' => array(),
             // Post type filtering (default: post, page, product)
             'allowed_post_types' => array( 'post', 'page', 'product' ),
             // Order status concordance (wc-slug => houla_status)

@@ -215,6 +215,127 @@ $workspace_has_shop = (bool) $options->get( 'workspace_has_shop' );
         ) );
         ?>
         <!-- ============================================================= -->
+        <!-- Category -> Workspace mapping (multi-workspace routing)        -->
+        <!-- ============================================================= -->
+        <div class="wphoula-card" style="margin-top: 20px;">
+            <h2><?php esc_html_e( 'Multi-Workspace Routing', 'wp-houla' ); ?></h2>
+            <p class="description" style="margin-bottom: 12px;">
+                <?php esc_html_e( 'Route products from specific WooCommerce categories to different Hou.la workspaces. Products in unmapped categories are synced to the default connected workspace.', 'wp-houla' ); ?>
+            </p>
+
+            <?php
+            $category_workspace_map = $options->get( 'category_workspace_map' );
+            if ( ! is_array( $category_workspace_map ) ) {
+                $category_workspace_map = array();
+            }
+            ?>
+
+            <div id="wphoula-workspace-map-container">
+                <table class="wphoula-mapping-table widefat" id="wphoula-workspace-map-table">
+                    <thead>
+                        <tr>
+                            <th style="width:25%;"><?php esc_html_e( 'WooCommerce Category', 'wp-houla' ); ?></th>
+                            <th style="width:5%; text-align:center;">&#8594;</th>
+                            <th style="width:25%;"><?php esc_html_e( 'Hou.la Workspace', 'wp-houla' ); ?></th>
+                            <th style="width:15%;"><?php esc_html_e( 'API Key', 'wp-houla' ); ?></th>
+                            <th style="width:15%;"><?php esc_html_e( 'Price Adjustment', 'wp-houla' ); ?></th>
+                            <th style="width:15%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        if ( ! empty( $product_cats ) && ! is_wp_error( $product_cats ) ) :
+                            foreach ( $product_cats as $cat ) :
+                                $has_mapping = isset( $category_workspace_map[ $cat->term_id ] );
+                                $ws_entry    = $has_mapping ? $category_workspace_map[ $cat->term_id ] : array();
+                                $ws_id       = $ws_entry['workspace_id'] ?? '';
+                                $ws_name     = $ws_entry['workspace_name'] ?? '';
+                                $has_key     = ! empty( $ws_entry['api_key'] );
+                                $ws_adj_type = $ws_entry['price_adjustment_type'] ?? 'none';
+                                $ws_adj_val  = $ws_entry['price_adjustment_value'] ?? 0;
+                        ?>
+                        <tr class="wphoula-ws-map-row <?php echo $has_mapping ? 'wphoula-ws-mapped' : ''; ?>"
+                            data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>">
+                            <td>
+                                <strong><?php echo esc_html( $cat->name ); ?></strong>
+                                <span class="description">(<?php echo esc_html( $cat->count ); ?> <?php esc_html_e( 'products', 'wp-houla' ); ?>)</span>
+                            </td>
+                            <td style="text-align:center; color:#999;">&#8594;</td>
+                            <td>
+                                <select class="wphoula-ws-map-select" data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>" style="width:100%;">
+                                    <option value=""><?php esc_html_e( '— Default workspace —', 'wp-houla' ); ?></option>
+                                    <?php if ( $has_mapping && $ws_id ) : ?>
+                                        <option value="<?php echo esc_attr( $ws_id ); ?>" selected>
+                                            <?php echo esc_html( $ws_name ?: $ws_id ); ?>
+                                        </option>
+                                    <?php endif; ?>
+                                </select>
+                            </td>
+                            <td>
+                                <?php if ( $has_mapping && $has_key ) : ?>
+                                    <span class="wphoula-key-status wphoula-key-status--ok" title="<?php esc_attr_e( 'API key configured', 'wp-houla' ); ?>">
+                                        <span class="dashicons dashicons-yes-alt" style="color:#00a32a;"></span>
+                                        <?php esc_html_e( 'Configured', 'wp-houla' ); ?>
+                                    </span>
+                                <?php elseif ( $has_mapping && ! $has_key ) : ?>
+                                    <span class="wphoula-key-status wphoula-key-status--missing" title="<?php esc_attr_e( 'API key missing', 'wp-houla' ); ?>">
+                                        <span class="dashicons dashicons-warning" style="color:#d63638;"></span>
+                                        <?php esc_html_e( 'Missing', 'wp-houla' ); ?>
+                                    </span>
+                                    <button type="button" class="button button-small wphoula-provision-ws-key"
+                                            data-ws-id="<?php echo esc_attr( $ws_id ); ?>"
+                                            data-ws-name="<?php echo esc_attr( $ws_name ); ?>"
+                                            data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>">
+                                        <?php esc_html_e( 'Generate', 'wp-houla' ); ?>
+                                    </button>
+                                <?php else : ?>
+                                    <span class="description">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ( $has_mapping ) : ?>
+                                    <select class="wphoula-ws-adj-type" data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>" style="width:100%;">
+                                        <option value="none" <?php selected( $ws_adj_type, 'none' ); ?>><?php esc_html_e( 'None', 'wp-houla' ); ?></option>
+                                        <option value="percent_up" <?php selected( $ws_adj_type, 'percent_up' ); ?>>+%</option>
+                                        <option value="percent_down" <?php selected( $ws_adj_type, 'percent_down' ); ?>>-%</option>
+                                        <option value="fixed_up" <?php selected( $ws_adj_type, 'fixed_up' ); ?>>+€</option>
+                                        <option value="fixed_down" <?php selected( $ws_adj_type, 'fixed_down' ); ?>>-€</option>
+                                    </select>
+                                    <input type="number" class="wphoula-ws-adj-value small-text" data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>"
+                                           value="<?php echo esc_attr( $ws_adj_val ); ?>"
+                                           min="0" step="0.01" style="width:60px; margin-top:4px; <?php echo $ws_adj_type === 'none' ? 'display:none;' : ''; ?>">
+                                <?php else : ?>
+                                    <span class="description">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ( $has_mapping ) : ?>
+                                    <button type="button" class="button button-small button-link-delete wphoula-ws-map-remove" data-cat-id="<?php echo esc_attr( $cat->term_id ); ?>">
+                                        <?php esc_html_e( 'Remove', 'wp-houla' ); ?>
+                                    </button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php
+                            endforeach;
+                        endif;
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <p style="margin-top: 16px;">
+                <button type="button" class="button button-primary" id="wphoula-save-workspace-map">
+                    <?php esc_html_e( 'Save Workspace Mapping', 'wp-houla' ); ?>
+                </button>
+                <span id="wphoula-ws-map-status" style="display:none; margin-left: 8px;"></span>
+            </p>
+            <p class="description">
+                <?php esc_html_e( 'Select a workspace for each category, then click "Save". An API key will be automatically generated for each mapped workspace. Products in unmapped categories will sync to your default connected workspace.', 'wp-houla' ); ?>
+            </p>
+        </div>
+
+        <!-- ============================================================= -->
         <!-- Price adjustment                                               -->
         <!-- ============================================================= -->
         <div class="wphoula-card" style="margin-top: 20px;">

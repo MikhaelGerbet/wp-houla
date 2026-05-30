@@ -35,10 +35,11 @@ class Wp_Houla_Api {
      *
      * @param string $endpoint API path (e.g. "/ecommerce/products/123/stats").
      * @param array  $query    Query string parameters.
+     * @param array  $overrides Optional auth/header overrides (e.g. ['api_key' => '...', 'workspace_id' => '...']).
      * @return array|WP_Error  Decoded JSON body or WP_Error.
      */
-    public function get( $endpoint, array $query = array() ) {
-        return $this->request( 'GET', $endpoint, array(), $query );
+    public function get( $endpoint, array $query = array(), array $overrides = array() ) {
+        return $this->request( 'GET', $endpoint, array(), $query, 0, $overrides );
     }
 
     /**
@@ -46,10 +47,11 @@ class Wp_Houla_Api {
      *
      * @param string $endpoint API path.
      * @param array  $body     Request body (will be JSON-encoded).
+     * @param array  $overrides Optional auth/header overrides.
      * @return array|WP_Error  Decoded JSON body or WP_Error.
      */
-    public function post( $endpoint, array $body = array() ) {
-        return $this->request( 'POST', $endpoint, $body );
+    public function post( $endpoint, array $body = array(), array $overrides = array() ) {
+        return $this->request( 'POST', $endpoint, $body, array(), 0, $overrides );
     }
 
     /**
@@ -57,20 +59,22 @@ class Wp_Houla_Api {
      *
      * @param string $endpoint API path.
      * @param array  $body     Request body (will be JSON-encoded).
+     * @param array  $overrides Optional auth/header overrides.
      * @return array|WP_Error  Decoded JSON body or WP_Error.
      */
-    public function patch( $endpoint, array $body = array() ) {
-        return $this->request( 'PATCH', $endpoint, $body );
+    public function patch( $endpoint, array $body = array(), array $overrides = array() ) {
+        return $this->request( 'PATCH', $endpoint, $body, array(), 0, $overrides );
     }
 
     /**
      * Perform a DELETE request to the Hou.la API.
      *
      * @param string $endpoint API path.
+     * @param array  $overrides Optional auth/header overrides.
      * @return array|WP_Error  Decoded JSON body or WP_Error.
      */
-    public function delete( $endpoint ) {
-        return $this->request( 'DELETE', $endpoint );
+    public function delete( $endpoint, array $overrides = array() ) {
+        return $this->request( 'DELETE', $endpoint, array(), array(), 0, $overrides );
     }
 
     // =====================================================================
@@ -109,18 +113,32 @@ class Wp_Houla_Api {
     /**
      * Execute an HTTP request to the Hou.la API.
      *
-     * @param string $method   HTTP method (GET, POST, PATCH, DELETE).
-     * @param string $endpoint API path.
-     * @param array  $body     Request body for POST/PATCH.
-     * @param array  $query    Query string parameters for GET.
-     * @param int    $attempt  Current retry attempt.
+     * @param string $method    HTTP method (GET, POST, PATCH, DELETE).
+     * @param string $endpoint  API path.
+     * @param array  $body      Request body for POST/PATCH.
+     * @param array  $query     Query string parameters for GET.
+     * @param int    $attempt   Current retry attempt.
+     * @param array  $overrides Optional overrides: 'api_key' to use a different API key,
+     *                          'workspace_id' to set X-Workspace-Id header.
      * @return array|WP_Error
      */
-    private function request( $method, $endpoint, array $body = array(), array $query = array(), $attempt = 0 ) {
-        $auth_headers = $this->resolve_auth_headers();
+    private function request( $method, $endpoint, array $body = array(), array $query = array(), $attempt = 0, array $overrides = array() ) {
+        // Use override API key if provided, otherwise resolve normally
+        if ( ! empty( $overrides['api_key'] ) ) {
+            $auth_headers = array(
+                'X-Api-Key' => $overrides['api_key'],
+            );
+        } else {
+            $auth_headers = $this->resolve_auth_headers();
+        }
 
         if ( false === $auth_headers ) {
             return new WP_Error( 'wphoula_not_connected', __( 'Not connected to Hou.la.', 'wp-houla' ) );
+        }
+
+        // Add X-Workspace-Id header if provided in overrides
+        if ( ! empty( $overrides['workspace_id'] ) ) {
+            $auth_headers['X-Workspace-Id'] = $overrides['workspace_id'];
         }
 
         $api_url = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
@@ -168,6 +186,11 @@ class Wp_Houla_Api {
         if ( 401 === $status_code && $attempt < $this->max_retries ) {
             $this->log( 'Received 401 on ' . $endpoint );
 
+            // If using an override key, don't retry (the override key itself is bad)
+            if ( ! empty( $overrides['api_key'] ) ) {
+                return new WP_Error( 'wphoula_unauthorized', __( 'Override API key rejected.', 'wp-houla' ) );
+            }
+
             // If we were using an API key, it may have been revoked
             if ( isset( $auth_headers['X-Api-Key'] ) ) {
                 $this->log( 'API key rejected, clearing stored key and trying token refresh...' );
@@ -180,7 +203,7 @@ class Wp_Houla_Api {
             if ( $this->auth->refresh_token() ) {
                 // Re-provision a fresh API key so future calls use it (not the JWT)
                 $this->auth->provision_api_key();
-                return $this->request( $method, $endpoint, $body, $query, $attempt + 1 );
+                return $this->request( $method, $endpoint, $body, $query, $attempt + 1, $overrides );
             }
 
             // Both auth methods failed -- mark as disconnected

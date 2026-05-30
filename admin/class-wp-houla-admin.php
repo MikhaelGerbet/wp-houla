@@ -97,6 +97,13 @@ class Wp_Houla_Admin {
                     'loadingWorkspaces'   => __( 'Chargement des espaces…', 'wp-houla' ),
                     'onlyOneWorkspace'    => __( 'Vous n\'avez qu\'un seul espace de travail.', 'wp-houla' ),
                     'switchingWorkspace'  => __( 'Changement en cours…', 'wp-houla' ),
+                    'provisioningKey'     => __( 'Provisionnement de la clé API…', 'wp-houla' ),
+                    'keyProvisioned'      => __( 'Clé API provisionnée avec succès.', 'wp-houla' ),
+                    'savingWorkspaceMap'  => __( 'Enregistrement du mapping…', 'wp-houla' ),
+                    'workspaceMapSaved'   => __( 'Mapping multi-workspace enregistré.', 'wp-houla' ),
+                    'selectWorkspace'     => __( 'Sélectionnez un espace', 'wp-houla' ),
+                    'noMapping'           => __( '— Workspace par défaut —', 'wp-houla' ),
+                    'removeMapping'       => __( 'Retirer', 'wp-houla' ),
                 ),
             ) );
         }
@@ -697,6 +704,132 @@ class Wp_Houla_Admin {
         ) );
 
         wp_send_json_success( array( 'message' => __( 'Settings saved.', 'wp-houla' ) ) );
+    }
+
+    // =====================================================================
+    // Multi-workspace mapping AJAX handlers
+    // =====================================================================
+
+    /**
+     * AJAX: Save the category → workspace mapping.
+     *
+     * Receives an array of mappings: { cat_id => { workspace_id, workspace_name, api_key, price_adjustment_type, price_adjustment_value } }
+     * API keys are stored encrypted.
+     */
+    public function ajax_save_workspace_map() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $raw_map = isset( $_POST['category_workspace_map'] ) ? $_POST['category_workspace_map'] : array();
+        if ( ! is_array( $raw_map ) ) {
+            $raw_map = array();
+        }
+
+        $clean_map = array();
+        $allowed_adj_types = array( 'none', 'percent_up', 'percent_down', 'fixed_up', 'fixed_down' );
+
+        foreach ( $raw_map as $cat_id => $entry ) {
+            $cat_id = absint( $cat_id );
+            if ( $cat_id <= 0 || ! is_array( $entry ) ) {
+                continue;
+            }
+
+            $workspace_id = sanitize_text_field( $entry['workspace_id'] ?? '' );
+            if ( empty( $workspace_id ) ) {
+                continue;
+            }
+
+            $adj_type = sanitize_text_field( $entry['price_adjustment_type'] ?? 'none' );
+            if ( ! in_array( $adj_type, $allowed_adj_types, true ) ) {
+                $adj_type = 'none';
+            }
+
+            $clean_map[ $cat_id ] = array(
+                'workspace_id'           => $workspace_id,
+                'workspace_name'         => sanitize_text_field( $entry['workspace_name'] ?? '' ),
+                'api_key'                => ! empty( $entry['api_key'] )
+                                             ? Wp_Houla_Options::encrypt( sanitize_text_field( $entry['api_key'] ) )
+                                             : '',
+                'price_adjustment_type'  => $adj_type,
+                'price_adjustment_value' => abs( floatval( $entry['price_adjustment_value'] ?? 0 ) ),
+            );
+        }
+
+        $this->options->set( 'category_workspace_map', $clean_map );
+
+        wp_send_json_success( array(
+            'message' => __( 'Workspace mapping saved.', 'wp-houla' ),
+            'count'   => count( $clean_map ),
+        ) );
+    }
+
+    /**
+     * AJAX: Provision an API key for a specific workspace.
+     *
+     * Uses the current OAuth token to create an internal API key
+     * scoped to the given workspace_id.
+     */
+    public function ajax_provision_workspace_key() {
+        check_ajax_referer( 'wphoula_admin', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'wp-houla' ) );
+        }
+
+        $workspace_id   = isset( $_POST['workspace_id'] ) ? sanitize_text_field( wp_unslash( $_POST['workspace_id'] ) ) : '';
+        $workspace_name = isset( $_POST['workspace_name'] ) ? sanitize_text_field( wp_unslash( $_POST['workspace_name'] ) ) : '';
+
+        if ( empty( $workspace_id ) ) {
+            wp_send_json_error( __( 'No workspace ID provided.', 'wp-houla' ) );
+        }
+
+        // Use OAuth token to provision a key for the target workspace
+        $token = Wp_Houla_Options::decrypt( $this->options->get( 'access_token' ) );
+        if ( empty( $token ) ) {
+            wp_send_json_error( __( 'No access token available. Please reconnect.', 'wp-houla' ) );
+        }
+
+        $api_url   = function_exists( 'wphoula_get_api_url' ) ? wphoula_get_api_url() : WPHOULA_API_URL;
+        $url       = $api_url . '/api/keys';
+        $site_name = wp_parse_url( get_site_url(), PHP_URL_HOST );
+
+        $response = wp_remote_post( $url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'Authorization'              => 'Bearer ' . $token,
+                'Content-Type'               => 'application/json',
+                'Accept'                     => 'application/json',
+                'User-Agent'                 => 'wp-houla/' . WPHOULA_VERSION,
+                'X-Workspace-Id'             => $workspace_id,
+                'ngrok-skip-browser-warning' => 'true',
+            ),
+            'body' => wp_json_encode( array(
+                'name' => 'WP-Houla Multi-WS — ' . $site_name,
+                'type' => 'internal',
+            ) ),
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( $response->get_error_message() );
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( ( 201 === $status || 200 === $status ) && ! empty( $body['key'] ) ) {
+            wp_send_json_success( array(
+                'api_key'        => $body['key'],
+                'workspace_id'   => $workspace_id,
+                'workspace_name' => $workspace_name,
+                'message'        => __( 'API key provisioned.', 'wp-houla' ),
+            ) );
+        } else {
+            $msg = isset( $body['message'] ) ? $body['message'] : 'HTTP ' . $status;
+            wp_send_json_error( $msg );
+        }
     }
 
     /**
