@@ -109,10 +109,14 @@ class AuthTest extends TestCase {
         // Tokens should be encrypted (not stored in plain text).
         $this->assertNotEquals( 'test-access-token', $savedValues['access_token'] );
         $this->assertNotEquals( 'test-refresh-token', $savedValues['refresh_token'] );
-        // Workspace fields are NOT stored by store_tokens() — they are managed
-        // explicitly by the OAuth callback and switch-workspace handler.
-        $this->assertArrayNotHasKey( 'workspace_id', $savedValues );
-        $this->assertArrayNotHasKey( 'workspace_name', $savedValues );
+        // Workspace fields are NOT persisted from the token payload by
+        // store_tokens() — they are managed explicitly by the OAuth callback
+        // and switch-workspace handler. The persisted options array always
+        // carries these keys with their default '' value (see
+        // Wp_Houla_Options::populate_options), so assert the token payload's
+        // values were NOT written rather than the keys' absence.
+        $this->assertNotEquals( 'ws-123', $savedValues['workspace_id'] ?? '' );
+        $this->assertNotEquals( 'My Store', $savedValues['workspace_name'] ?? '' );
     }
 
     public function test_disconnect_clears_tokens(): void {

@@ -58,15 +58,24 @@ class ActivatorTest extends TestCase {
 
     public function test_activate_preserves_existing_secret(): void {
         $existingSecret = 'my-existing-secret';
+        $savedOptions   = null;
 
         Functions\when( 'get_option' )->justReturn( array( 'webhook_secret' => $existingSecret ) );
         Functions\when( 'flush_rewrite_rules' )->justReturn( true );
         Functions\when( 'wp_mkdir_p' )->justReturn( true );
 
-        // update_option should NOT be called since secret already exists.
-        Functions\expect( 'update_option' )->never();
+        // activate() ALWAYS persists options (it also migrates the order-status
+        // map), but it must NOT regenerate an already-present webhook secret.
+        Functions\expect( 'update_option' )
+            ->once()
+            ->andReturnUsing( function ( $key, $value ) use ( &$savedOptions ) {
+                $savedOptions = $value;
+                return true;
+            } );
 
         \Wp_Houla_Activator::activate();
+
+        $this->assertSame( $existingSecret, $savedOptions['webhook_secret'] );
     }
 
     public function test_activate_creates_log_directory(): void {
