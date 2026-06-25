@@ -30,6 +30,8 @@ abstract class TestCase extends PHPUnitTestCase {
             '__'                => function ( $text ) { return $text; },
             '_e'                => function ( $text ) { echo $text; },
             'sanitize_text_field' => function ( $str ) { return trim( strip_tags( $str ) ); },
+            'sanitize_email'    => function ( $email ) { return trim( $email ); },
+            'sanitize_textarea_field' => function ( $str ) { return trim( $str ); },
             'absint'            => function ( $val ) { return abs( intval( $val ) ); },
             'wp_json_encode'    => function ( $data ) { return json_encode( $data ); },
             'admin_url'         => function ( $path = '' ) { return 'https://example.com/wp-admin/' . $path; },
