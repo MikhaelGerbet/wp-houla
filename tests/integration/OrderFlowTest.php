@@ -46,9 +46,19 @@ class MockWcOrder {
     public function set_status( $status, $note = '' ) { $this->status = $status; }
     public function update_meta_data( $key, $value ) { $this->meta[ $key ] = $value; }
     public function calculate_totals() {}
+    public function set_total( $total ) {}
     public function save() {}
+    public function add_order_note( $note, $is_customer_note = 0, $added_by_user = false ) {}
+    public function set_billing_first_name( $name ) {}
+    public function get_billing_first_name() { return ''; }
+    public function remove_item( $item_id ) { unset( $this->items[ $item_id ] ); }
+    public function delete_meta_data( $key ) { unset( $this->meta[ $key ] ); }
+    public function save_meta_data() {}
 
-    public function get_meta() { return $this->meta; }
+    public function get_meta( $key = '', $single = true ) {
+        if ( '' === $key ) { return $this->meta; }
+        return $this->meta[ $key ] ?? '';
+    }
     public function get_status() { return $this->status; }
     public function get_items() { return $this->items; }
     public function get_payment_method() { return $this->payment_method; }
@@ -85,6 +95,18 @@ class OrderFlowTest extends TestCase {
             return $thing instanceof \WP_Error;
         } );
         Functions\when( 'current_time' )->justReturn( '2026-02-22 14:30:00' );
+        // create_order() validates the target status against the registered
+        // WooCommerce order statuses (array_keys( wc_get_order_statuses() )).
+        Functions\when( 'wc_get_order_statuses' )->justReturn( array(
+            'wc-pending'    => 'Pending payment',
+            'wc-processing' => 'Processing',
+            'wc-on-hold'    => 'On hold',
+            'wc-completed'  => 'Completed',
+            'wc-cancelled'  => 'Cancelled',
+            'wc-refunded'   => 'Refunded',
+            'wc-failed'     => 'Failed',
+            'wc-open-cart'  => 'Open cart',
+        ) );
     }
 
     public function test_create_order_full_flow(): void {
@@ -159,7 +181,11 @@ class OrderFlowTest extends TestCase {
     }
 
     public function test_create_order_detects_duplicate(): void {
+        // A duplicate triggers the upsert path: create_order() -> update_order(),
+        // which loads the existing order via wc_get_order() and re-adds items.
         Functions\when( 'wc_get_orders' )->justReturn( array( 50 ) );
+        Functions\when( 'wc_get_order' )->justReturn( new MockWcOrder() );
+        Functions\when( 'wc_get_product' )->justReturn( new MockWcProduct( 1 ) );
 
         $orders = new \Wp_Houla_Orders();
         $result = $orders->create_order( array(
