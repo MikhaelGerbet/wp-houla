@@ -738,6 +738,43 @@ class Wp_Houla_Sync {
      * @param WC_Product $product
      * @return array
      */
+    /**
+     * Resolve the product brand (marque) for Google Shopping.
+     *
+     * Tries, in order: WooCommerce native brands (product_brand, WC 9.6+),
+     * then the most common third-party brand taxonomies. Returns the first
+     * term name found, or empty string. Filterable via `wp_houla_product_brand`.
+     *
+     * @param WC_Product $product
+     * @return string
+     */
+    private function get_product_brand( $product ) {
+        $product_id = $product->get_id();
+        $taxonomies = array( 'product_brand', 'pwb-brand', 'yith_product_brand', 'pa_brand' );
+        $brand      = '';
+
+        foreach ( $taxonomies as $taxonomy ) {
+            if ( ! taxonomy_exists( $taxonomy ) ) {
+                continue;
+            }
+            $terms = wp_get_post_terms( $product_id, $taxonomy, array( 'fields' => 'names' ) );
+            if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+                $brand = (string) $terms[0];
+                break;
+            }
+        }
+
+        /**
+         * Allow stores with a custom brand source (ACF field, meta, etc.) to override.
+         *
+         * @param string     $brand   Detected brand name (may be empty).
+         * @param WC_Product $product The product being synced.
+         */
+        $brand = apply_filters( 'wp_houla_product_brand', $brand, $product );
+
+        return is_string( $brand ) ? substr( $brand, 0, 70 ) : '';
+    }
+
     private function format_product( $product ) {
         $data = array(
             'external_id'     => (string) $product->get_id(),
@@ -753,6 +790,7 @@ class Wp_Houla_Sync {
             'stock_status'    => $product->get_stock_status(),
             'manage_stock'    => $product->get_manage_stock(),
             'sku'             => $product->get_sku(),
+            'brand'           => $this->get_product_brand( $product ),
             'weight'          => $product->get_weight(),
             'type'            => $product->get_type(),
             'virtual'         => $product->is_virtual(),
